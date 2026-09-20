@@ -22,9 +22,10 @@ type Page = 'home' | 'deriva' | 'historico' | 'config';
 function App() {
   const [page, setPage] = useState<Page>('home');
   const [dbReady, setDbReady] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [derivaAtiva, setDerivaAtiva] = useState<DerivaCompleta | null>(null);
   const [derivas, setDerivas] = useState<DerivaCompleta[]>([]);
-  const [config, setConfig] = useState<DerivaConfig>(getConfig());
+  const [config, setConfig] = useState<DerivaConfig>({ nomeDerivante: 'Derivante', cidadeBase: '', temaPreferido: '' });
 
   // Inicializar banco de dados
   useEffect(() => {
@@ -34,6 +35,7 @@ function App() {
       setConfig(getConfig());
     }).catch(err => {
       console.error('Erro ao inicializar banco:', err);
+      setDbError(err instanceof Error ? err.message : 'Erro desconhecido ao inicializar banco de dados');
     });
   }, []);
 
@@ -65,8 +67,24 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-pulse-slow">◉</div>
-          <p className="text-deriva-muted">Inicializando banco de dados...</p>
+          {dbError ? (
+            <>
+              <div className="text-4xl mb-4">⚠️</div>
+              <p className="text-deriva-danger mb-2">Erro ao inicializar banco de dados</p>
+              <p className="text-deriva-muted text-sm max-w-md">{dbError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-deriva-accent/10 text-deriva-accent border border-deriva-accent/30 rounded-lg text-sm hover:bg-deriva-accent/20 transition-colors"
+              >
+                Tentar novamente
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-4xl mb-4 animate-pulse-slow">◉</div>
+              <p className="text-deriva-muted">Inicializando banco de dados...</p>
+            </>
+          )}
         </div>
       </div>
     );
