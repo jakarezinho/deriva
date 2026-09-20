@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriva — Caminhar sem Rumo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-container">
+            <button class="logo" onclick="showPage('home')">
+                <span class="logo-icon">◉</span>
+                <span class="logo-text">DERIVA</span>
+            </button>
+            <div class="nav-buttons">
+                <button class="nav-btn active" data-page="home" onclick="showPage('home')">
+                    <span>◈</span> <span class="nav-label">Início</span>
+                </button>
+                <button class="nav-btn" data-page="deriva" onclick="showPage('deriva')">
+                    <span>⟐</span> <span class="nav-label">Derivar</span>
+                </button>
+                <button class="nav-btn" data-page="historico" onclick="showPage('historico')">
+                    <span>▤</span> <span class="nav-label">Histórico</span>
+                </button>
+                <button class="nav-btn" data-page="config" onclick="showPage('config')">
+                    <span>⚙</span> <span class="nav-label">Config</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- HOME PAGE -->
+        <div id="page-home" class="page active">
+            <div class="container">
+                <div class="hero">
+                    <div class="hero-icon">◉</div>
+                    <h1 class="hero-title">Teoria da Deriva</h1>
+                    <p class="hero-text">
+                        "A deriva é um modo de comportamento experimental ligado às condições da sociedade urbana: 
+                        técnica do trânsito passageiro em uma ambiência variável."
+                    </p>
+                    <p class="hero-author">— Guy Debord, 1956</p>
+                </div>
+
+                <div class="card glow">
+                    <h2>O que é a Deriva?</h2>
+                    <p>A <strong>deriva urbana</strong> é uma prática de exploração sem destino fixo, onde o caminhante se deixa levar pela psicogeografia do ambiente — os atrativos do terreno, as correntes invisíveis da cidade, os encontros inesperados.</p>
+                    <p>Diferente do passeio ou da caminhada com propósito, a deriva abandona as razões habituais de deslocamento e se entrega ao <em>arrastamento</em> pelo espaço urbano.</p>
+                    <p>Os <strong>prompts</strong> desta aplicação funcionam como <em>situações construídas</em> — dispositivos que quebram a rotina perceptiva e abrem novas possibilidades de experiência na cidade.</p>
+                </div>
+
+                <div class="card">
+                    <h2>Modos de Deriva</h2>
+                    <div class="categories-grid" id="categories-grid"></div>
+                </div>
+
+                <div id="stats-home" class="card" style="display: none;">
+                    <h2>Suas Derivas</h2>
+                    <div class="stats-grid" id="stats-grid-home"></div>
+                </div>
+
+                <div class="cta">
+                    <button class="btn-primary btn-large" onclick="showPage('deriva')">
+                        Iniciar Deriva →
+                    </button>
+                    <p class="cta-text" id="cta-text">A cidade espera.</p>
+                </div>
+
+                <div class="manifesto">
+                    <p>"Nada de novo na arte ou na poesia pode ser verdadeiramente buscado sem uma exploração prática dos possíveis caminhos da vida." — Situacionismo</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- DERIVA PAGE -->
+        <div id="page-deriva" class="page">
+            <div class="container">
+                <div id="deriva-start">
+                    <div class="hero">
+                        <div class="hero-icon">⟐</div>
+                        <h1 class="hero-title">Iniciar Deriva</h1>
+                        <p class="hero-text">Abandone o propósito. Entregue-se ao arrastamento.</p>
+                    </div>
+
+                    <div class="card">
+                        <label class="label">Onde você está? (opcional)</label>
+                        <input type="text" id="local-inicio" placeholder="Ex: Praça da Sé, São Paulo" class="input">
+                    </div>
+
+                    <div class="card">
+                        <label class="label">Filtrar por categoria (opcional)</label>
+                        <div class="filter-buttons" id="filter-buttons"></div>
+                    </div>
+
+                    <div class="cta">
+                        <button class="btn-primary btn-large" onclick="iniciarDeriva()">
+                            Começar a Derivar ◉
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <h3>Princípios da Deriva (Debord)</h3>
+                        <ul class="principles">
+                            <li>A deriva se pratica em grupos de 2-3 pessoas que se influenciam mutuamente</li>
+                            <li>A duração média é de um dia inteiro</li>
+                            <li>O derivante abandona as razões de se deslocar (trabalho, lazer)</li>
+                            <li>As psicogeografia revelam linhas de força da cidade</li>
+                            <li>Cada deriva é única e irrepetível</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="deriva-active" style="display: none;">
+                    <div class="deriva-header">
+                        <div>
+                            <h1 class="deriva-title">Deriva em Curso</h1>
+                            <p class="deriva-info" id="deriva-info">0 prompts seguidos</p>
+                        </div>
+                        <button class="btn-success" onclick="showFinishModal()">Finalizar ✓</button>
+                    </div>
+
+                    <div id="prompts-container" class="prompts-list"></div>
+
+                    <div class="action-buttons">
+                        <button class="btn-secondary" onclick="adicionarPrompt()">+ Novo Prompt Aleatório</button>
+                        <button class="btn-secondary" onclick="toggleAllPrompts()">▤</button>
+                    </div>
+
+                    <div id="all-prompts" class="card" style="display: none;">
+                        <h3>Todos os Prompts</h3>
+                        <div id="all-prompts-list" class="all-prompts-list"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3>✍️ Descobertas no Caminho</h3>
+                        <div class="descobertas-input">
+                            <input type="text" id="nova-descoberta" placeholder="O que você encontrou?" class="input">
+                            <button class="btn-accent" onclick="adicionarDescoberta()">+</button>
+                        </div>
+                        <div id="descobertas-list" class="descobertas-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORICO PAGE -->
+        <div id="page-historico" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Histórico de Derivas</h1>
+                        <p class="page-subtitle" id="total-derivas">0 derivas registradas</p>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-secondary" onclick="exportarDados()">↓ Exportar</button>
+                        <button class="btn-secondary" onclick="importarDados()">↑ Importar</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="stats-grid"></div>
+
+                <div id="historico-list" class="historico-list"></div>
+            </div>
+        </div>
+
+        <!-- CONFIG PAGE -->
+        <div id="page-config" class="page">
+            <div class="container">
+                <h1 class="page-title">Configurações</h1>
+
+                <div class="card">
+                    <h2>Perfil do Derivante</h2>
+                    <div class="form-group">
+                        <label class="label">Nome</label>
+                        <input type="text" id="config-nome" placeholder="Seu nome ou pseudônimo" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Cidade base</label>
+                        <input type="text" id="config-cidade" placeholder="Sua cidade principal" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Tema preferido</label>
+                        <input type="text" id="config-tema" placeholder="Ex: arquitetura, pessoas, sons..." class="input">
+                    </div>
+                    <button class="btn-primary" onclick="salvarConfig()">Salvar</button>
+                </div>
+
+                <div class="card">
+                    <h2>Sobre</h2>
+                    <p><strong>Deriva</strong> — v1.0</p>
+                    <p>Aplicação pessoal para prática de deriva urbana situacionista.</p>
+                    <p>Inspirado em "Théorie de la Dérive" de Guy Debord (1956).</p>
+                    <p class="text-small">Dados armazenados em SQLite no servidor.</p>
+                </div>
+
+                <div class="card danger">
+                    <h2>Zona de Perigo</h2>
+                    <p>Apagar todos os dados registrados.</p>
+                    <button class="btn-danger" onclick="apagarTudo()">Apagar Tudo</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="modal-finish" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Finalizar Deriva</h2>
+            
+            <div class="form-group">
+                <label class="label">Como está seu humor? (1-5)</label>
+                <div class="humor-buttons" id="humor-buttons"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="label">Clima</label>
+                <div class="clima-buttons" id="clima-buttons"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="label">Notas da deriva</label>
+                <textarea id="notas-deriva" placeholder="O que esta deriva revelou?" class="textarea"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeFinishModal()">Continuar</button>
+                <button class="btn-success" onclick="finalizarDeriva()">Salvar Deriva ✓</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-detalhes" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalhes da Deriva</h2>
+                <button class="modal-close" onclick="closeDetalhesModal()">✕</button>
+            </div>
+            <div id="detalhes-content"></div>
+        </div>
+    </div>
+
+    <div id="modal-edit" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Editar Deriva</h2>
+                <button class="modal-close" onclick="closeEditModal()">✕</button>
+            </div>
+            <div id="edit-content"></div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="loading">
+        <div class="loading-icon">◉</div>
+        <p>Carregando...</p>
+    </div>
+
+    <script src="prompts.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
