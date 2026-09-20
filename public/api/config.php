@@ -49,6 +49,10 @@ function getDB() {
                 humor INTEGER CHECK(humor >= 1 AND humor <= 5),
                 clima TEXT,
                 distancia REAL,
+                localizacao_inicio_lat REAL,
+                localizacao_inicio_lng REAL,
+                localizacao_fim_lat REAL,
+                localizacao_fim_lng REAL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )

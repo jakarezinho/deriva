@@ -7,6 +7,10 @@ let descobertas = [];
 let humor = 3;
 let clima = '';
 let startTime = '';
+let localizacaoAtual = null;
+let mapa = null;
+let markers = [];
+let watchId = null;
 
 // API
 const API_URL = 'api/derivas.php';
@@ -71,6 +75,8 @@ function showPage(page) {
   if (page === 'historico') {
     loadDerivas();
     loadStats();
+  } else if (page === 'mapa') {
+    setTimeout(() => initMapa(), 100);
   }
 }
 
@@ -277,7 +283,7 @@ function setClima(value) {
 }
 
 // Deriva
-function iniciarDeriva() {
+async function iniciarDeriva() {
   derivaAtiva = {
     id: generateId(),
     data_inicio: new Date().toISOString(),
@@ -289,6 +295,15 @@ function iniciarDeriva() {
   currentPrompts = getRandomPrompts(5);
   usedPromptIds = currentPrompts.map(p => p.id);
   descobertas = [];
+  
+  // Iniciar geolocalização
+  iniciarGeolocalizacao();
+  
+  // Capturar localização inicial
+  const localizacaoInicio = await capturarLocalizacaoAtual();
+  if (localizacaoInicio) {
+    derivaAtiva.localizacao_inicio = localizacaoInicio;
+  }
   
   // Mostrar interface de deriva ativa
   document.getElementById('deriva-start').style.display = 'none';
@@ -414,6 +429,12 @@ async function finalizarDeriva() {
   const notas = document.getElementById('notas-deriva').value;
   const localInicio = document.getElementById('local-inicio').value;
   
+  // Parar geolocalização
+  pararGeolocalizacao();
+  
+  // Capturar localização final
+  const localizacaoFim = await capturarLocalizacaoAtual();
+  
   const derivaFinal = {
     ...derivaAtiva,
     data_fim: endTime.toISOString(),
@@ -422,6 +443,7 @@ async function finalizarDeriva() {
     humor,
     clima,
     local_inicio: localInicio,
+    localizacao_fim: localizacaoFim,
     descobertas
   };
   
@@ -833,4 +855,175 @@ function formatDate(dateString) {
     month: 'short', 
     year: 'numeric' 
   });
+}
+
+// ============ GEOLOCALIZAÇÃO ============
+
+function iniciarGeolocalizacao() {
+  if (!navigator.geolocation) {
+    console.warn('Geolocalização não suportada');
+    return;
+  }
+  
+  watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      localizacaoAtual = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: new Date().toISOString()
+      };
+      console.log('Localização atualizada:', localizacaoAtual);
+    },
+    (error) => {
+      console.warn('Erro na geolocalização:', error.message);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+}
+
+function pararGeolocalizacao() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+}
+
+function capturarLocalizacaoAtual() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+      },
+      (error) => {
+        console.warn('Erro ao capturar localização:', error.message);
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      }
+    );
+  });
+}
+
+// ============ MAPA LEAFLET ============
+
+async function initMapa() {
+  const mapContainer = document.getElementById('mapa-derivs');
+  if (!mapContainer) return;
+  
+  // Se o mapa já existe, apenas invalidar o tamanho
+  if (mapa) {
+    mapa.invalidateSize();
+    await carregarDerivasNoMapa();
+    return;
+  }
+  
+  // Criar mapa centrado no Brasil
+  mapa = L.map('mapa-derivs').setView([-15.7801, -47.9292], 4);
+  
+  // Adicionar tile layer (OpenStreetMap)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(mapa);
+  
+  // Carregar derivas no mapa
+  await carregarDerivasNoMapa();
+}
+
+async function carregarDerivasNoMapa() {
+  if (!mapa) return;
+  
+  try {
+    const response = await fetch(API_URL);
+    const derivas = await response.json();
+    
+    // Limpar markers existentes
+    markers.forEach(marker => mapa.removeLayer(marker));
+    markers = [];
+    
+    if (derivas.length === 0) {
+      document.getElementById('mapa-info').style.display = 'block';
+      document.getElementById('mapa-info').innerHTML = '<p style="color: #6b6b80;">Nenhuma deriva registrada ainda. Comece sua primeira deriva!</p>';
+      return;
+    }
+    
+    // Adicionar markers para cada deriva
+    const bounds = L.latLngBounds();
+    let hasCoordinates = false;
+    
+    derivas.forEach(deriva => {
+      // Se tem localização de início
+      if (deriva.localizacao_inicio && deriva.localizacao_inicio.lat && deriva.localizacao_inicio.lng) {
+        const marker = L.marker([
+          deriva.localizacao_inicio.lat,
+          deriva.localizacao_inicio.lng
+        ]).addTo(mapa);
+        
+        // Popup com informações da deriva
+        const popupContent = `
+          <div style="min-width: 200px;">
+            <strong style="color: #c084fc; font-size: 1rem;">${formatDate(deriva.data_inicio)}</strong><br>
+            ${deriva.local_inicio ? `<em style="color: #6b6b80;">${deriva.local_inicio}</em><br>` : ''}
+            ${deriva.clima ? `<span>${deriva.clima}</span><br>` : ''}
+            <span style="color: #6b6b80;">${deriva.promptsSeguidos.length} prompts</span><br>
+            ${deriva.duracao ? `<span style="color: #6b6b80;">${deriva.duracao} min</span><br>` : ''}
+            <span>Humor: ${'●'.repeat(deriva.humor)}${'○'.repeat(5 - deriva.humor)}</span><br>
+            ${deriva.descobertas.length > 0 ? `<br><strong>Descobertas:</strong><br>${deriva.descobertas.slice(0, 3).map(d => `• ${d}`).join('<br>')}` : ''}
+          </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+        markers.push(marker);
+        bounds.extend([deriva.localizacao_inicio.lat, deriva.localizacao_inicio.lng]);
+        hasCoordinates = true;
+      }
+      
+      // Se tem localização de fim
+      if (deriva.localizacao_fim && deriva.localizacao_fim.lat && deriva.localizacao_fim.lng) {
+        const marker = L.marker([
+          deriva.localizacao_fim.lat,
+          deriva.localizacao_fim.lng
+        ], {
+          icon: L.divIcon({
+            className: 'custom-div-icon',
+            html: "<div style='background: #34d399; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;'></div>",
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+          })
+        }).addTo(mapa);
+        
+        marker.bindPopup(`<strong>Fim da deriva</strong><br>${formatDate(deriva.data_fim || deriva.data_inicio)}`);
+        markers.push(marker);
+        bounds.extend([deriva.localizacao_fim.lat, deriva.localizacao_fim.lng]);
+        hasCoordinates = true;
+      }
+    });
+    
+    if (hasCoordinates) {
+      mapa.fitBounds(bounds, { padding: [50, 50] });
+      document.getElementById('mapa-info').style.display = 'none';
+    } else {
+      document.getElementById('mapa-info').style.display = 'block';
+      document.getElementById('mapa-info').innerHTML = '<p style="color: #6b6b80;">Nenhuma deriva com localização registrada. Ative a geolocalização durante a deriva!</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar derivas no mapa:', error);
+  }
 }

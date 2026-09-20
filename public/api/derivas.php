@@ -91,6 +91,32 @@ function getAllDerivas($db) {
     while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
         $row['promptsSeguidos'] = getPromptsSeguidos($db, $row['id']);
         $row['descobertas'] = getDescobertas($db, $row['id']);
+        
+        // Formatar localizações
+        if ($row['localizacao_inicio_lat'] && $row['localizacao_inicio_lng']) {
+            $row['localizacao_inicio'] = [
+                'lat' => (float)$row['localizacao_inicio_lat'],
+                'lng' => (float)$row['localizacao_inicio_lng']
+            ];
+        } else {
+            $row['localizacao_inicio'] = null;
+        }
+        
+        if ($row['localizacao_fim_lat'] && $row['localizacao_fim_lng']) {
+            $row['localizacao_fim'] = [
+                'lat' => (float)$row['localizacao_fim_lat'],
+                'lng' => (float)$row['localizacao_fim_lng']
+            ];
+        } else {
+            $row['localizacao_fim'] = null;
+        }
+        
+        // Remover campos individuais de localização
+        unset($row['localizacao_inicio_lat']);
+        unset($row['localizacao_inicio_lng']);
+        unset($row['localizacao_fim_lat']);
+        unset($row['localizacao_fim_lng']);
+        
         $derivas[] = $row;
     }
     
@@ -110,6 +136,31 @@ function getDeriva($db, $id) {
     $deriva['promptsSeguidos'] = getPromptsSeguidos($db, $id);
     $deriva['descobertas'] = getDescobertas($db, $id);
     
+    // Formatar localizações
+    if ($deriva['localizacao_inicio_lat'] && $deriva['localizacao_inicio_lng']) {
+        $deriva['localizacao_inicio'] = [
+            'lat' => (float)$deriva['localizacao_inicio_lat'],
+            'lng' => (float)$deriva['localizacao_inicio_lng']
+        ];
+    } else {
+        $deriva['localizacao_inicio'] = null;
+    }
+    
+    if ($deriva['localizacao_fim_lat'] && $deriva['localizacao_fim_lng']) {
+        $deriva['localizacao_fim'] = [
+            'lat' => (float)$deriva['localizacao_fim_lat'],
+            'lng' => (float)$deriva['localizacao_fim_lng']
+        ];
+    } else {
+        $deriva['localizacao_fim'] = null;
+    }
+    
+    // Remover campos individuais de localização
+    unset($deriva['localizacao_inicio_lat']);
+    unset($deriva['localizacao_inicio_lng']);
+    unset($deriva['localizacao_fim_lat']);
+    unset($deriva['localizacao_fim_lng']);
+    
     jsonResponse($deriva);
 }
 
@@ -120,9 +171,25 @@ function createDeriva($db) {
         jsonError('Dados inválidos');
     }
     
+    // Extrair localização
+    $locInicioLat = null;
+    $locInicioLng = null;
+    $locFimLat = null;
+    $locFimLng = null;
+    
+    if (isset($data['localizacao_inicio']) && is_array($data['localizacao_inicio'])) {
+        $locInicioLat = $data['localizacao_inicio']['lat'] ?? null;
+        $locInicioLng = $data['localizacao_inicio']['lng'] ?? null;
+    }
+    
+    if (isset($data['localizacao_fim']) && is_array($data['localizacao_fim'])) {
+        $locFimLat = $data['localizacao_fim']['lat'] ?? null;
+        $locFimLng = $data['localizacao_fim']['lng'] ?? null;
+    }
+    
     $stmt = $db->prepare('
-        INSERT INTO derivas (id, data_inicio, data_fim, duracao, local_inicio, local_fim, notas, humor, clima, distancia)
-        VALUES (:id, :data_inicio, :data_fim, :duracao, :local_inicio, :local_fim, :notas, :humor, :clima, :distancia)
+        INSERT INTO derivas (id, data_inicio, data_fim, duracao, local_inicio, local_fim, notas, humor, clima, distancia, localizacao_inicio_lat, localizacao_inicio_lng, localizacao_fim_lat, localizacao_fim_lng)
+        VALUES (:id, :data_inicio, :data_fim, :duracao, :local_inicio, :local_fim, :notas, :humor, :clima, :distancia, :loc_inicio_lat, :loc_inicio_lng, :loc_fim_lat, :loc_fim_lng)
     ');
     
     $stmt->bindValue(':id', $data['id'], SQLITE3_TEXT);
@@ -135,6 +202,10 @@ function createDeriva($db) {
     $stmt->bindValue(':humor', $data['humor'] ?? 3, SQLITE3_INTEGER);
     $stmt->bindValue(':clima', $data['clima'] ?? null, SQLITE3_TEXT);
     $stmt->bindValue(':distancia', $data['distancia'] ?? null, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_inicio_lat', $locInicioLat, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_inicio_lng', $locInicioLng, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_fim_lat', $locFimLat, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_fim_lng', $locFimLng, SQLITE3_FLOAT);
     
     $stmt->execute();
     
@@ -181,6 +252,22 @@ function updateDeriva($db) {
         jsonError('Deriva não encontrada', 404);
     }
     
+    // Extrair localização
+    $locInicioLat = null;
+    $locInicioLng = null;
+    $locFimLat = null;
+    $locFimLng = null;
+    
+    if (isset($data['localizacao_inicio']) && is_array($data['localizacao_inicio'])) {
+        $locInicioLat = $data['localizacao_inicio']['lat'] ?? null;
+        $locInicioLng = $data['localizacao_inicio']['lng'] ?? null;
+    }
+    
+    if (isset($data['localizacao_fim']) && is_array($data['localizacao_fim'])) {
+        $locFimLat = $data['localizacao_fim']['lat'] ?? null;
+        $locFimLng = $data['localizacao_fim']['lng'] ?? null;
+    }
+    
     // Atualizar deriva
     $stmt = $db->prepare('
         UPDATE derivas SET 
@@ -192,6 +279,10 @@ function updateDeriva($db) {
             humor = :humor,
             clima = :clima,
             distancia = :distancia,
+            localizacao_inicio_lat = :loc_inicio_lat,
+            localizacao_inicio_lng = :loc_inicio_lng,
+            localizacao_fim_lat = :loc_fim_lat,
+            localizacao_fim_lng = :loc_fim_lng,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
     ');
@@ -204,6 +295,10 @@ function updateDeriva($db) {
     $stmt->bindValue(':humor', $data['humor'] ?? 3, SQLITE3_INTEGER);
     $stmt->bindValue(':clima', $data['clima'] ?? null, SQLITE3_TEXT);
     $stmt->bindValue(':distancia', $data['distancia'] ?? null, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_inicio_lat', $locInicioLat, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_inicio_lng', $locInicioLng, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_fim_lat', $locFimLat, SQLITE3_FLOAT);
+    $stmt->bindValue(':loc_fim_lng', $locFimLng, SQLITE3_FLOAT);
     $stmt->bindValue(':id', $id, SQLITE3_TEXT);
     
     $stmt->execute();
