@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { prompts, categories, getRandomPrompt, getRandomPrompts, getRandomPromptByCategory, type Prompt } from './data/prompts';
 import { 
-  initDatabase, 
+  initStorage,
+  getStorageMode,
   getAllDerivas, 
-  getDerivaById, 
   createDeriva, 
   updateDeriva, 
   deleteDeriva, 
@@ -15,7 +15,7 @@ import {
   generateId,
   type DerivaCompleta,
   type DerivaConfig 
-} from './db/database';
+} from './services/storage';
 
 type Page = 'home' | 'deriva' | 'historico' | 'config';
 
@@ -27,42 +27,54 @@ function App() {
   const [derivaAtiva, setDerivaAtiva] = useState<DerivaCompleta | null>(null);
   const [derivas, setDerivas] = useState<DerivaCompleta[]>([]);
   const [config, setConfig] = useState<DerivaConfig>({ nomeDerivante: 'Derivante', cidadeBase: '', temaPreferido: '' });
+  const [stats, setStats] = useState({ totalDerivas: 0, totalPrompts: 0, totalMinutos: 0, mediaHumor: '0', totalDescobertas: 0 });
+  const [storageMode, setStorageMode] = useState<string>('local');
 
-  // Inicializar banco de dados
-  const initializeDb = useCallback(async () => {
+  // Inicializar storage (detecta API ou usa local)
+  const initializeStorage = useCallback(async () => {
     setDbLoading(true);
     setDbError(null);
     
     try {
-      console.log('Iniciando banco de dados...');
-      await initDatabase();
-      console.log('Banco de dados inicializado com sucesso');
+      console.log('Iniciando storage...');
+      const mode = await initStorage();
+      console.log(`Storage inicializado: ${mode}`);
+      setStorageMode(mode);
       
       setDbReady(true);
       setDbLoading(false);
-      setDerivas(getAllDerivas());
-      setConfig(getConfig());
+      
+      // Carregar dados iniciais
+      const [derivasData, configData, statsData] = await Promise.all([
+        getAllDerivas(),
+        getConfig(),
+        getStats()
+      ]);
+      setDerivas(derivasData);
+      setConfig(configData);
+      setStats(statsData);
     } catch (err) {
-      console.error('Erro ao inicializar banco:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido ao inicializar banco de dados';
+      console.error('Erro ao inicializar storage:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido ao inicializar';
       setDbError(errorMsg);
       setDbLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    initializeDb();
-  }, [initializeDb]);
+    initializeStorage();
+  }, [initializeStorage]);
 
   const handleRetry = () => {
     // Resetar estado e tentar novamente
     setDbReady(false);
     setDbError(null);
-    initializeDb();
+    initializeStorage();
   };
 
-  const refreshDerivas = () => {
-    setDerivas(getAllDerivas());
+  const refreshDerivas = async () => {
+    const derivasData = await getAllDerivas();
+    setDerivas(derivasData);
   };
 
   const handleSaveDeriva = async (deriva: DerivaCompleta) => {
@@ -144,7 +156,7 @@ function App() {
 
       {/* Main Content */}
       <main className="pt-16 min-h-screen">
-        {page === 'home' && <HomePage onStartDeriva={() => setPage('deriva')} config={config} />}
+        {page === 'home' && <HomePage onStartDeriva={() => setPage('deriva')} config={config} stats={stats} storageMode={storageMode} />}
         {page === 'deriva' && (
           <DerivaPage
             derivaAtiva={derivaAtiva}
@@ -158,7 +170,7 @@ function App() {
             derivas={derivas}
             onDelete={handleDeleteDeriva}
             onUpdate={handleUpdateDeriva}
-            stats={getStats()}
+            stats={stats}
           />
         )}
         {page === 'config' && (
@@ -187,8 +199,12 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
 }
 
 // ============ HOME PAGE ============
-function HomePage({ onStartDeriva, config }: { onStartDeriva: () => void; config: DerivaConfig }) {
-  const stats = getStats();
+function HomePage({ onStartDeriva, config, stats, storageMode }: { 
+  onStartDeriva: () => void; 
+  config: DerivaConfig;
+  stats: { totalDerivas: number; totalPrompts: number; totalMinutos: number; mediaHumor: string; totalDescobertas: number };
+  storageMode: string;
+}) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 animate-fade-in">
@@ -649,14 +665,14 @@ function HistoricoPage({ derivas, onDelete, onUpdate, stats }: {
   derivas: DerivaCompleta[]; 
   onDelete: (id: string) => void;
   onUpdate: (deriva: DerivaCompleta) => void;
-  stats: ReturnType<typeof getStats> 
+  stats: { totalDerivas: number; totalPrompts: number; totalMinutos: number; mediaHumor: string; totalDescobertas: number };
 }) {
   const [selectedDeriva, setSelectedDeriva] = useState<DerivaCompleta | null>(null);
   const [editingDeriva, setEditingDeriva] = useState<DerivaCompleta | null>(null);
   const [showExport, setShowExport] = useState(false);
 
-  const handleExport = () => {
-    const data = exportDatabase();
+  const handleExport = async () => {
+    const data = await exportDatabase();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
