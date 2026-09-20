@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deriva — Caminhar sem Rumo</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <!-- Navigation -->
@@ -20,6 +21,9 @@
                 </button>
                 <button class="nav-btn" data-page="deriva" onclick="showPage('deriva')">
                     <span>⟐</span> <span class="nav-label">Derivar</span>
+                </button>
+                <button class="nav-btn" data-page="mapa" onclick="showPage('mapa')">
+                    <span>🗺️</span> <span class="nav-label">Mapa</span>
                 </button>
                 <button class="nav-btn" data-page="historico" onclick="showPage('historico')">
                     <span>▤</span> <span class="nav-label">Histórico</span>
@@ -147,6 +151,25 @@
             </div>
         </div>
 
+        <!-- MAPA PAGE -->
+        <div id="page-mapa" class="page">
+            <div class="container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Mapa de Derivas</h1>
+                        <p class="page-subtitle">Visualize suas derivas no mapa</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div id="mapa-derivs" style="height: 500px; width: 100%; border-radius: 0.5rem;"></div>
+                    <div id="mapa-info" class="mapa-info" style="margin-top: 1rem; display: none;">
+                        <p style="color: #6b6b80; font-size: 0.875rem;">Clique em um marcador para ver detalhes da deriva</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- HISTORICO PAGE -->
         <div id="page-historico" class="page">
             <div class="container">
@@ -259,6 +282,7 @@
         <p>Carregando...</p>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="prompts.js"></script>
     <script src="app.js"></script>
 </body>

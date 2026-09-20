@@ -1,10 +1,22 @@
-# 🚀 Deriva Urbana - Instalação Simples
+# 🚀 Deriva Urbana - Com Mapa e Edição
 
 ## ✅ Projeto 100% Standalone
 
 **Sem Node.js, sem npm, sem build!**
 
 Apenas HTML, CSS, JavaScript puro + PHP com SQLite.
+
+### 🎯 Funcionalidades Principais
+
+✅ **150 prompts situacionistas** em 7 categorias  
+✅ **Mapa interativo** com Leaflet mostrando todas as derivas  
+✅ **Geolocalização automática** durante as derivas  
+✅ **Editar derivas** completas (local, humor, notas, etc)  
+✅ **Eliminar derivas** individualmente ou em massa  
+✅ **SQLite no servidor** - dados acessíveis de qualquer dispositivo  
+✅ **Export/Import** - backup em JSON  
+✅ **Design responsivo** - funciona em desktop e mobile  
+✅ **Sem dependências** - funciona direto no navegador
 
 ---
 
