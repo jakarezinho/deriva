@@ -1,33 +1,76 @@
 import { useState, useEffect, useCallback } from 'react';
 import { prompts, categories, getRandomPrompt, getRandomPrompts, getRandomPromptByCategory, type Prompt } from './data/prompts';
-import { getDerivas, saveDeriva, deleteDeriva, getConfig, saveConfig, generateId, getStats, exportData, importData, type Deriva, type DerivaConfig } from './store/derivaStore';
+import { 
+  initDatabase, 
+  getAllDerivas, 
+  getDerivaById, 
+  createDeriva, 
+  updateDeriva, 
+  deleteDeriva, 
+  getConfig, 
+  saveConfig, 
+  getStats, 
+  exportDatabase, 
+  importDatabase, 
+  generateId,
+  type DerivaCompleta,
+  type DerivaConfig 
+} from './db/database';
 
 type Page = 'home' | 'deriva' | 'historico' | 'config';
 
 function App() {
   const [page, setPage] = useState<Page>('home');
-  const [derivaAtiva, setDerivaAtiva] = useState<Deriva | null>(null);
-  const [derivas, setDerivas] = useState<Deriva[]>([]);
+  const [dbReady, setDbReady] = useState(false);
+  const [derivaAtiva, setDerivaAtiva] = useState<DerivaCompleta | null>(null);
+  const [derivas, setDerivas] = useState<DerivaCompleta[]>([]);
   const [config, setConfig] = useState<DerivaConfig>(getConfig());
 
+  // Inicializar banco de dados
   useEffect(() => {
-    setDerivas(getDerivas());
-  }, [page]);
+    initDatabase().then(() => {
+      setDbReady(true);
+      setDerivas(getAllDerivas());
+      setConfig(getConfig());
+    }).catch(err => {
+      console.error('Erro ao inicializar banco:', err);
+    });
+  }, []);
 
-  const handleSaveDeriva = (deriva: Deriva) => {
-    saveDeriva(deriva);
-    setDerivas(getDerivas());
+  const refreshDerivas = () => {
+    setDerivas(getAllDerivas());
   };
 
-  const handleDeleteDeriva = (id: string) => {
-    deleteDeriva(id);
-    setDerivas(getDerivas());
+  const handleSaveDeriva = async (deriva: DerivaCompleta) => {
+    await createDeriva(deriva);
+    refreshDerivas();
   };
 
-  const handleSaveConfig = (newConfig: DerivaConfig) => {
-    saveConfig(newConfig);
+  const handleUpdateDeriva = async (deriva: DerivaCompleta) => {
+    await updateDeriva(deriva);
+    refreshDerivas();
+  };
+
+  const handleDeleteDeriva = async (id: string) => {
+    await deleteDeriva(id);
+    refreshDerivas();
+  };
+
+  const handleSaveConfig = async (newConfig: DerivaConfig) => {
+    await saveConfig(newConfig);
     setConfig(newConfig);
   };
+
+  if (!dbReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse-slow">◉</div>
+          <p className="text-deriva-muted">Inicializando banco de dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen noise-bg">
@@ -62,6 +105,7 @@ function App() {
           <HistoricoPage
             derivas={derivas}
             onDelete={handleDeleteDeriva}
+            onUpdate={handleUpdateDeriva}
             stats={getStats()}
           />
         )}
@@ -196,9 +240,9 @@ function StatBox({ value, label }: { value: string | number; label: string }) {
 
 // ============ DERIVA PAGE ============
 function DerivaPage({ derivaAtiva, setDerivaAtiva, onSave, config }: {
-  derivaAtiva: Deriva | null;
-  setDerivaAtiva: (d: Deriva | null) => void;
-  onSave: (d: Deriva) => void;
+  derivaAtiva: DerivaCompleta | null;
+  setDerivaAtiva: (d: DerivaCompleta | null) => void;
+  onSave: (d: DerivaCompleta) => void;
   config: DerivaConfig;
 }) {
   const [currentPrompts, setCurrentPrompts] = useState<Prompt[]>([]);
@@ -217,14 +261,18 @@ function DerivaPage({ derivaAtiva, setDerivaAtiva, onSave, config }: {
   const iniciarDeriva = useCallback(() => {
     const id = generateId();
     const now = new Date().toISOString();
-    const novaDeriva: Deriva = {
+    const novaDeriva: DerivaCompleta = {
       id,
-      dataInicio: now,
-      localInicio: '',
-      promptsSeguidos: [],
+      data_inicio: now,
+      data_fim: null,
+      duracao: null,
+      local_inicio: '',
+      local_fim: null,
       notas: '',
       humor: 3,
       clima: '',
+      distancia: null,
+      promptsSeguidos: [],
       descobertas: [],
     };
     setDerivaAtiva(novaDeriva);
@@ -271,17 +319,17 @@ function DerivaPage({ derivaAtiva, setDerivaAtiva, onSave, config }: {
   const finalizarDeriva = () => {
     if (!derivaAtiva) return;
     const endTime = new Date();
-    const start = new Date(derivaAtiva.dataInicio);
+    const start = new Date(derivaAtiva.data_inicio);
     const duracao = Math.round((endTime.getTime() - start.getTime()) / 60000);
 
-    const finalDeriva: Deriva = {
+    const finalDeriva: DerivaCompleta = {
       ...derivaAtiva,
-      dataFim: endTime.toISOString(),
+      data_fim: endTime.toISOString(),
       duracao,
       notas,
       humor,
       clima,
-      localInicio,
+      local_inicio: localInicio,
       descobertas,
     };
     onSave(finalDeriva);
@@ -545,12 +593,18 @@ function DerivaPage({ derivaAtiva, setDerivaAtiva, onSave, config }: {
 }
 
 // ============ HISTÓRICO PAGE ============
-function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDelete: (id: string) => void; stats: ReturnType<typeof getStats> }) {
-  const [selectedDeriva, setSelectedDeriva] = useState<Deriva | null>(null);
+function HistoricoPage({ derivas, onDelete, onUpdate, stats }: { 
+  derivas: DerivaCompleta[]; 
+  onDelete: (id: string) => void;
+  onUpdate: (deriva: DerivaCompleta) => void;
+  stats: ReturnType<typeof getStats> 
+}) {
+  const [selectedDeriva, setSelectedDeriva] = useState<DerivaCompleta | null>(null);
+  const [editingDeriva, setEditingDeriva] = useState<DerivaCompleta | null>(null);
   const [showExport, setShowExport] = useState(false);
 
   const handleExport = () => {
-    const data = exportData();
+    const data = exportDatabase();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -564,12 +618,12 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (ev) => {
-          const result = importData(ev.target?.result as string);
+        reader.onload = async (ev) => {
+          const result = await importDatabase(ev.target?.result as string);
           if (result) {
             window.location.reload();
           } else {
@@ -580,6 +634,20 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
       }
     };
     input.click();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta deriva? Esta ação não pode ser desfeita.')) {
+      await onDelete(id);
+      setSelectedDeriva(null);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (editingDeriva) {
+      await onUpdate(editingDeriva);
+      setEditingDeriva(null);
+    }
   };
 
   return (
@@ -617,7 +685,7 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
         </div>
       ) : (
         <div className="space-y-3">
-          {[...derivas].reverse().map(deriva => (
+          {derivas.map(deriva => (
             <div
               key={deriva.id}
               className="glass-card p-4 hover:border-deriva-accent/30 transition-all cursor-pointer"
@@ -627,12 +695,12 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-medium text-deriva-text">
-                      {new Date(deriva.dataInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {new Date(deriva.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                     {deriva.clima && <span className="text-xs">{deriva.clima}</span>}
                   </div>
-                  {deriva.localInicio && (
-                    <p className="text-xs text-deriva-muted">{deriva.localInicio}</p>
+                  {deriva.local_inicio && (
+                    <p className="text-xs text-deriva-muted">{deriva.local_inicio}</p>
                   )}
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-xs text-deriva-muted">
@@ -649,7 +717,7 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
                   </div>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(deriva.id); }}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(deriva.id); }}
                   className="p-2 text-deriva-muted/30 hover:text-deriva-danger transition-colors"
                 >
                   ✕
@@ -674,14 +742,14 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
 
             <div className="space-y-4">
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-deriva-muted">{new Date(selectedDeriva.dataInicio).toLocaleString('pt-BR')}</span>
+                <span className="text-deriva-muted">{new Date(selectedDeriva.data_inicio).toLocaleString('pt-BR')}</span>
                 {selectedDeriva.clima && <span>{selectedDeriva.clima}</span>}
               </div>
 
-              {selectedDeriva.localInicio && (
+              {selectedDeriva.local_inicio && (
                 <div>
                   <span className="text-xs text-deriva-muted block mb-1">Início</span>
-                  <p className="text-sm text-deriva-text">{selectedDeriva.localInicio}</p>
+                  <p className="text-sm text-deriva-text">{selectedDeriva.local_inicio}</p>
                 </div>
               )}
 
@@ -729,10 +797,230 @@ function HistoricoPage({ derivas, onDelete, stats }: { derivas: Deriva[]; onDele
                   <p className="text-sm text-deriva-text/80 italic leading-relaxed">"{selectedDeriva.notas}"</p>
                 </div>
               )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setEditingDeriva(selectedDeriva);
+                    setSelectedDeriva(null);
+                  }}
+                  className="flex-1 py-2.5 bg-deriva-accent/10 text-deriva-accent border border-deriva-accent/30 rounded-lg text-sm hover:bg-deriva-accent/20 transition-colors"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => handleDelete(selectedDeriva.id)}
+                  className="flex-1 py-2.5 bg-deriva-danger/10 text-deriva-danger border border-deriva-danger/30 rounded-lg text-sm hover:bg-deriva-danger/20 transition-colors"
+                >
+                  Excluir
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Modal de edição */}
+      {editingDeriva && (
+        <EditDerivaModal
+          deriva={editingDeriva}
+          onSave={handleUpdate}
+          onClose={() => setEditingDeriva(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============ EDIT DERIVA MODAL ============
+function EditDerivaModal({ deriva, onSave, onClose }: {
+  deriva: DerivaCompleta;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<DerivaCompleta>(deriva);
+  const [novaDescoberta, setNovaDescoberta] = useState('');
+
+  const handleAddDescoberta = () => {
+    if (novaDescoberta.trim()) {
+      setForm({
+        ...form,
+        descobertas: [...form.descobertas, novaDescoberta.trim()]
+      });
+      setNovaDescoberta('');
+    }
+  };
+
+  const handleRemoveDescoberta = (index: number) => {
+    setForm({
+      ...form,
+      descobertas: form.descobertas.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleRemovePrompt = (index: number) => {
+    setForm({
+      ...form,
+      promptsSeguidos: form.promptsSeguidos.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleSubmit = () => {
+    onSave();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+      <div className="glass-card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-serif font-bold text-gradient">Editar Deriva</h2>
+          <button onClick={onClose} className="text-deriva-muted hover:text-deriva-text text-xl">✕</button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Local de início</label>
+            <input
+              type="text"
+              value={form.local_inicio || ''}
+              onChange={e => setForm({ ...form, local_inicio: e.target.value })}
+              className="w-full bg-white/5 border border-deriva-border rounded-lg px-4 py-2.5 text-sm text-deriva-text focus:outline-none focus:border-deriva-accent/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Local de fim</label>
+            <input
+              type="text"
+              value={form.local_fim || ''}
+              onChange={e => setForm({ ...form, local_fim: e.target.value })}
+              className="w-full bg-white/5 border border-deriva-border rounded-lg px-4 py-2.5 text-sm text-deriva-text focus:outline-none focus:border-deriva-accent/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Duração (minutos)</label>
+            <input
+              type="number"
+              value={form.duracao || ''}
+              onChange={e => setForm({ ...form, duracao: parseInt(e.target.value) || null })}
+              className="w-full bg-white/5 border border-deriva-border rounded-lg px-4 py-2.5 text-sm text-deriva-text focus:outline-none focus:border-deriva-accent/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Humor (1-5)</label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setForm({ ...form, humor: n })}
+                  className={`w-10 h-10 rounded-lg text-sm font-bold transition-all ${
+                    form.humor === n ? 'bg-deriva-accent/20 text-deriva-accent border border-deriva-accent/40' : 'bg-white/5 text-deriva-muted border border-transparent'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Clima</label>
+            <div className="flex flex-wrap gap-2">
+              {['☀️ Sol', '⛅ Nublado', '🌧️ Chuva', '🌫️ Neblina', '🌬️ Vento', '❄️ Frio'].map(c => (
+                <button
+                  key={c}
+                  onClick={() => setForm({ ...form, clima: c })}
+                  className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+                    form.clima === c ? 'bg-deriva-accent/20 text-deriva-accent border border-deriva-accent/40' : 'bg-white/5 text-deriva-muted border border-transparent'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-1">Notas</label>
+            <textarea
+              value={form.notas || ''}
+              onChange={e => setForm({ ...form, notas: e.target.value })}
+              className="w-full bg-white/5 border border-deriva-border rounded-lg px-4 py-2.5 text-sm text-deriva-text focus:outline-none focus:border-deriva-accent/50 min-h-[100px] resize-y"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-deriva-muted block mb-2">Descobertas ({form.descobertas.length})</label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={novaDescoberta}
+                onChange={e => setNovaDescoberta(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddDescoberta()}
+                placeholder="Adicionar descoberta"
+                className="flex-1 bg-white/5 border border-deriva-border rounded-lg px-3 py-2 text-sm text-deriva-text focus:outline-none focus:border-deriva-accent/50"
+              />
+              <button
+                onClick={handleAddDescoberta}
+                className="px-3 py-2 bg-deriva-accent2/10 text-deriva-accent2 rounded-lg text-sm hover:bg-deriva-accent2/20"
+              >
+                +
+              </button>
+            </div>
+            {form.descobertas.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {form.descobertas.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1 px-2 py-1 bg-deriva-accent2/10 rounded-full text-xs">
+                    <span className="text-deriva-accent2">{d}</span>
+                    <button
+                      onClick={() => handleRemoveDescoberta(i)}
+                      className="text-deriva-accent2/50 hover:text-deriva-accent2 ml-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {form.promptsSeguidos.length > 0 && (
+            <div>
+              <label className="text-xs text-deriva-muted block mb-2">Prompts Seguidos ({form.promptsSeguidos.length})</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {form.promptsSeguidos.map((p, i) => (
+                  <div key={i} className="flex items-start gap-2 p-2 bg-white/[0.02] rounded-lg">
+                    <span className="flex-1 text-xs text-deriva-text/70">{p.promptText}</span>
+                    <button
+                      onClick={() => handleRemovePrompt(i)}
+                      className="text-deriva-muted/50 hover:text-deriva-danger text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 bg-white/5 border border-deriva-border rounded-lg text-sm text-deriva-muted hover:text-deriva-text transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="flex-1 py-3 bg-deriva-success/10 text-deriva-success border border-deriva-success/30 rounded-lg text-sm font-bold hover:bg-deriva-success/20 transition-colors"
+            >
+              Salvar Alterações
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -750,7 +1038,7 @@ function ConfigPage({ config, onSave }: { config: DerivaConfig; onSave: (c: Deri
 
   const handleClearAll = () => {
     if (confirm('Tem certeza? Isso apagará TODAS as derivas registradas. Esta ação é irreversível.')) {
-      localStorage.removeItem('derivas_urbanas');
+      indexedDB.deleteDatabase('derivas_urbanas');
       window.location.reload();
     }
   };
@@ -810,7 +1098,7 @@ function ConfigPage({ config, onSave }: { config: DerivaConfig; onSave: (c: Deri
           <p>Aplicação pessoal para prática de deriva urbana situacionista.</p>
           <p>Inspirado em "Théorie de la Dérive" de Guy Debord (1956).</p>
           <p className="text-xs mt-4 text-deriva-muted/50">
-            Dados armazenados localmente no navegador (localStorage).<br/>
+            Dados armazenados em SQLite (via IndexedDB).<br/>
             Use Exportar/Importar no Histórico para backup.
           </p>
         </div>
