@@ -1,13 +1,12 @@
 // SQLite via sql.js (WebAssembly) com persistência em IndexedDB
-import initSqlJs, { type Database } from 'sql.js';
-// @ts-ignore - Importar URL do WASM processada pelo Vite
-import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
+// Abordagem: Carregar sql.js dinamicamente via CDN
 
 const DB_NAME = 'derivas_urbanas_db';
 const DB_STORE = 'sqlite_data';
 const DB_FILE_KEY = 'main_db';
 
-let db: Database | null = null;
+let db: any = null;
+let SQL: any = null;
 let initPromise: Promise<void> | null = null;
 let initError: string | null = null;
 
@@ -20,34 +19,107 @@ export function getInitError(): string | null {
   return initError;
 }
 
+// Helper para verificar se o DB está pronto
+function ensureDbReady(): any {
+  if (!db) {
+    throw new Error('Banco de dados não inicializado. Certifique-se de que initDatabase() foi chamado e completou com sucesso.');
+  }
+  return db;
+}
+
+// Carregar script dinamicamente
+function loadScript(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Falha ao carregar script: ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
 // Inicializar banco de dados
 export async function initDatabase(): Promise<void> {
-  if (db) return;
-  if (initPromise) return initPromise;
+  if (db) {
+    console.log('Banco já inicializado');
+    return;
+  }
+  if (initPromise) {
+    console.log('Inicialização já em andamento, aguardando...');
+    return initPromise;
+  }
 
   initPromise = (async () => {
     try {
-      // Carregar sql.js com WASM via URL processada pelo Vite
-      const wasmResponse = await fetch(wasmUrl);
-      const wasmBuffer = await wasmResponse.arrayBuffer();
-      const SQL = await initSqlJs({
-        wasmBinary: wasmBuffer
+      console.log('Iniciando carregamento do SQL.js...');
+      
+      // Carregar sql.js via CDN
+      const cdnUrls = [
+        'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js',
+        'https://unpkg.com/sql.js@1.10.3/dist/sql-wasm.js',
+        'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js'
+      ];
+
+      let loaded = false;
+      for (const url of cdnUrls) {
+        try {
+          console.log(`Tentando carregar de: ${url}`);
+          await loadScript(url);
+          
+          // Verificar se o initSqlJs está disponível globalmente
+          if (typeof (window as any).initSqlJs !== 'undefined') {
+            console.log(`SQL.js carregado com sucesso de: ${url}`);
+            loaded = true;
+            break;
+          }
+        } catch (e) {
+          console.warn(`Falha ao carregar de ${url}:`, e);
+        }
+      }
+
+      if (!loaded) {
+        throw new Error('Não foi possível carregar SQL.js de nenhuma fonte CDN');
+      }
+
+      // Inicializar SQL.js
+      console.log('Inicializando SQL.js com WASM...');
+      const initSqlJs = (window as any).initSqlJs;
+      
+      SQL = await initSqlJs({
+        locateFile: (file: string) => {
+          // Usar o mesmo CDN de onde o script foi carregado
+          if (file.endsWith('.wasm')) {
+            return `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`;
+          }
+          return file;
+        }
       });
 
+      console.log('SQL.js inicializado com sucesso');
+
       // Tentar carregar banco existente do IndexedDB
+      console.log('Verificando banco existente no IndexedDB...');
       const savedDb = await loadFromIndexedDB();
       
       if (savedDb) {
+        console.log('Banco existente encontrado, carregando...');
         db = new SQL.Database(savedDb);
       } else {
-        // Criar novo banco
+        console.log('Nenhum banco encontrado, criando novo...');
         db = new SQL.Database();
         createTables();
         await saveToIndexedDB();
       }
+      
+      console.log('✓ Banco de dados inicializado com sucesso');
     } catch (error) {
       initError = error instanceof Error ? error.message : 'Erro desconhecido ao inicializar banco';
-      console.error('Erro ao inicializar banco de dados:', error);
+      console.error('✗ Erro ao inicializar banco de dados:', error);
+      console.error('Detalhes do erro:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      });
       throw error;
     }
   })();
@@ -57,9 +129,9 @@ export async function initDatabase(): Promise<void> {
 
 // Criar tabelas
 function createTables() {
-  if (!db) throw new Error('Banco não inicializado');
+  const database = ensureDbReady();
 
-  db.run(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS derivas (
       id TEXT PRIMARY KEY,
       data_inicio TEXT NOT NULL,
@@ -76,7 +148,7 @@ function createTables() {
     )
   `);
 
-  db.run(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS prompts_seguidos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       deriva_id TEXT NOT NULL,
@@ -87,7 +159,7 @@ function createTables() {
     )
   `);
 
-  db.run(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS descobertas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       deriva_id TEXT NOT NULL,
@@ -97,7 +169,7 @@ function createTables() {
     )
   `);
 
-  db.run(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -105,116 +177,95 @@ function createTables() {
   `);
 
   // Inserir config padrão se não existir
-  db.run(`INSERT OR IGNORE INTO config (key, value) VALUES ('nomeDerivante', 'Derivante')`);
-  db.run(`INSERT OR IGNORE INTO config (key, value) VALUES ('cidadeBase', '')`);
-  db.run(`INSERT OR IGNORE INTO config (key, value) VALUES ('temaPreferido', '')`);
+  database.run(`
+    INSERT OR IGNORE INTO config (key, value) VALUES 
+    ('nomeDerivante', 'Derivante'),
+    ('cidadeBase', ''),
+    ('temaPreferido', '')
+  `);
 }
 
 // Salvar banco no IndexedDB
 async function saveToIndexedDB(): Promise<void> {
-  if (!db) return;
+  const database = ensureDbReady();
 
-  const data = db.export();
+  const data = database.export();
   const buffer = data.buffer as ArrayBuffer;
 
   return new Promise((resolve, reject) => {
-    try {
-      const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 1);
 
-      request.onerror = () => {
-        console.warn('IndexedDB não disponível, dados não serão persistidos');
-        resolve(); // Não falhar, apenas avisar
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const idb = request.result;
+      const transaction = idb.transaction([DB_STORE], 'readwrite');
+      const store = transaction.objectStore(DB_STORE);
+      
+      store.put(buffer, DB_FILE_KEY);
+      
+      transaction.oncomplete = () => {
+        idb.close();
+        resolve();
       };
-      request.onsuccess = () => {
-        const database = request.result;
-        
-        if (!database.objectStoreNames.contains(DB_STORE)) {
-          database.close();
-          resolve();
-          return;
-        }
-        
-        const transaction = database.transaction([DB_STORE], 'readwrite');
-        const store = transaction.objectStore(DB_STORE);
-        
-        store.put(buffer, DB_FILE_KEY);
-        
-        transaction.oncomplete = () => {
-          database.close();
-          resolve();
-        };
-        transaction.onerror = () => {
-          database.close();
-          resolve(); // Não falhar
-        };
-      };
+      transaction.onerror = () => reject(transaction.error);
+    };
 
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(DB_STORE)) {
-          database.createObjectStore(DB_STORE);
-        }
-      };
-    } catch (e) {
-      console.warn('Erro ao salvar no IndexedDB:', e);
-      resolve(); // Não falhar
-    }
+    request.onupgradeneeded = () => {
+      const idb = request.result;
+      if (!idb.objectStoreNames.contains(DB_STORE)) {
+        idb.createObjectStore(DB_STORE);
+      }
+    };
   });
 }
 
 // Carregar banco do IndexedDB
 async function loadFromIndexedDB(): Promise<Uint8Array | null> {
-  return new Promise((resolve) => {
-    try {
-      const request = indexedDB.open(DB_NAME, 1);
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
 
-      request.onerror = () => resolve(null);
-      request.onsuccess = () => {
-        const database = request.result;
-        
-        if (!database.objectStoreNames.contains(DB_STORE)) {
-          database.close();
-          resolve(null);
-          return;
-        }
-        
-        const transaction = database.transaction([DB_STORE], 'readonly');
-        const store = transaction.objectStore(DB_STORE);
-        
-        const getRequest = store.get(DB_FILE_KEY);
-        
-        getRequest.onsuccess = () => {
-          database.close();
-          resolve(getRequest.result ? new Uint8Array(getRequest.result) : null);
-        };
-        getRequest.onerror = () => {
-          database.close();
-          resolve(null);
-        };
-      };
-
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(DB_STORE)) {
-          database.createObjectStore(DB_STORE);
-        }
-      };
-    } catch (e) {
+    request.onerror = () => {
+      console.warn('Erro ao abrir IndexedDB, começando com banco vazio');
       resolve(null);
-    }
-  });
-}
+    };
+    
+    request.onsuccess = () => {
+      const idb = request.result;
+      
+      // Verificar se o object store existe
+      if (!idb.objectStoreNames.contains(DB_STORE)) {
+        idb.close();
+        resolve(null);
+        return;
+      }
+      
+      const transaction = idb.transaction([DB_STORE], 'readonly');
+      const store = transaction.objectStore(DB_STORE);
+      
+      const getRequest = store.get(DB_FILE_KEY);
+      
+      getRequest.onsuccess = () => {
+        idb.close();
+        resolve(getRequest.result ? new Uint8Array(getRequest.result) : null);
+      };
+      getRequest.onerror = () => {
+        console.warn('Erro ao ler do IndexedDB, começando com banco vazio');
+        idb.close();
+        resolve(null);
+      };
+    };
 
-// Helper para garantir que o banco está pronto
-function ensureDb(): Database {
-  if (!db) throw new Error('Banco não inicializado. Aguarde a inicialização.');
-  return db;
+    request.onupgradeneeded = () => {
+      const idb = request.result;
+      if (!idb.objectStoreNames.contains(DB_STORE)) {
+        idb.createObjectStore(DB_STORE);
+      }
+    };
+  });
 }
 
 // Exportar banco como JSON
 export function exportDatabase(): string {
-  const database = ensureDb();
-
   const derivas = getAllDerivas();
   const config = getConfig();
 
@@ -228,15 +279,16 @@ export function exportDatabase(): string {
 
 // Importar banco de JSON
 export async function importDatabase(jsonString: string): Promise<boolean> {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   try {
     const data = JSON.parse(jsonString);
     
     // Limpar dados existentes
+    database.run('DELETE FROM derivas');
     database.run('DELETE FROM prompts_seguidos');
     database.run('DELETE FROM descobertas');
-    database.run('DELETE FROM derivas');
+    database.run('DELETE FROM config');
 
     // Importar derivas
     if (data.derivas && Array.isArray(data.derivas)) {
@@ -246,11 +298,11 @@ export async function importDatabase(jsonString: string): Promise<boolean> {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             deriva.id,
-            deriva.data_inicio || deriva.dataInicio,
-            deriva.data_fim || deriva.dataFim || null,
+            deriva.dataInicio || deriva.data_inicio,
+            deriva.dataFim || deriva.data_fim || null,
             deriva.duracao || null,
-            deriva.local_inicio || deriva.localInicio || null,
-            deriva.local_fim || deriva.localFim || null,
+            deriva.localInicio || deriva.local_inicio || null,
+            deriva.localFim || deriva.local_fim || null,
             deriva.notas || null,
             deriva.humor || 3,
             deriva.clima || null,
@@ -259,9 +311,9 @@ export async function importDatabase(jsonString: string): Promise<boolean> {
         );
 
         // Importar prompts seguidos
-        const promptsList = deriva.promptsSeguidos || deriva.prompts_seguidos || [];
-        if (Array.isArray(promptsList)) {
-          for (const prompt of promptsList) {
+        const promptsSeguidos = deriva.promptsSeguidos || [];
+        if (Array.isArray(promptsSeguidos)) {
+          for (const prompt of promptsSeguidos) {
             database.run(
               `INSERT INTO prompts_seguidos (deriva_id, prompt_id, prompt_text, timestamp)
                VALUES (?, ?, ?, ?)`,
@@ -271,12 +323,12 @@ export async function importDatabase(jsonString: string): Promise<boolean> {
         }
 
         // Importar descobertas
-        const descList = deriva.descobertas || [];
-        if (Array.isArray(descList)) {
-          for (const descoberta of descList) {
+        const descobertas = deriva.descobertas || [];
+        if (Array.isArray(descobertas)) {
+          for (const descoberta of descobertas) {
             database.run(
               `INSERT INTO descobertas (deriva_id, texto) VALUES (?, ?)`,
-              [deriva.id, typeof descoberta === 'string' ? descoberta : descoberta.texto]
+              [deriva.id, descoberta]
             );
           }
         }
@@ -298,7 +350,7 @@ export async function importDatabase(jsonString: string): Promise<boolean> {
   }
 }
 
-// ============ TIPOS ============
+// ============ CRUD DERIVAS ============
 
 export interface DerivaDB {
   id: string;
@@ -322,10 +374,8 @@ export interface DerivaCompleta extends DerivaDB {
   descobertas: string[];
 }
 
-// ============ CRUD DERIVAS ============
-
 export function getAllDerivas(): DerivaCompleta[] {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   const result = database.exec('SELECT * FROM derivas ORDER BY data_inicio DESC');
   if (result.length === 0) return [];
@@ -377,7 +427,7 @@ export function getAllDerivas(): DerivaCompleta[] {
 }
 
 export function getDerivaById(id: string): DerivaCompleta | null {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   const result = database.exec('SELECT * FROM derivas WHERE id = ?', [id]);
   if (result.length === 0 || result[0].values.length === 0) return null;
@@ -426,7 +476,7 @@ export function getDerivaById(id: string): DerivaCompleta | null {
 }
 
 export async function createDeriva(deriva: DerivaCompleta): Promise<void> {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   database.run(
     `INSERT INTO derivas (id, data_inicio, data_fim, duracao, local_inicio, local_fim, notas, humor, clima, distancia)
@@ -466,7 +516,7 @@ export async function createDeriva(deriva: DerivaCompleta): Promise<void> {
 }
 
 export async function updateDeriva(deriva: DerivaCompleta): Promise<void> {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   database.run(
     `UPDATE derivas SET 
@@ -509,13 +559,10 @@ export async function updateDeriva(deriva: DerivaCompleta): Promise<void> {
 }
 
 export async function deleteDeriva(id: string): Promise<void> {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
-  // Deletar dados relacionados primeiro (por segurança)
-  database.run('DELETE FROM prompts_seguidos WHERE deriva_id = ?', [id]);
-  database.run('DELETE FROM descobertas WHERE deriva_id = ?', [id]);
+  // CASCADE deve deletar prompts e descobertas automaticamente
   database.run('DELETE FROM derivas WHERE id = ?', [id]);
-  
   await saveToIndexedDB();
 }
 
@@ -528,7 +575,7 @@ export interface DerivaConfig {
 }
 
 export function getConfig(): DerivaConfig {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   const result = database.exec('SELECT key, value FROM config');
   if (result.length === 0) {
@@ -548,7 +595,7 @@ export function getConfig(): DerivaConfig {
 }
 
 export async function saveConfig(config: DerivaConfig): Promise<void> {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   database.run('UPDATE config SET value = ? WHERE key = ?', [config.nomeDerivante, 'nomeDerivante']);
   database.run('UPDATE config SET value = ? WHERE key = ?', [config.cidadeBase, 'cidadeBase']);
@@ -560,33 +607,22 @@ export async function saveConfig(config: DerivaConfig): Promise<void> {
 // ============ ESTATÍSTICAS ============
 
 export function getStats() {
-  const database = ensureDb();
+  const database = ensureDbReady();
 
   const totalResult = database.exec('SELECT COUNT(*) FROM derivas');
-  const totalDerivas = totalResult.length > 0 && totalResult[0].values.length > 0 
-    ? (totalResult[0].values[0][0] as number) || 0 
-    : 0;
+  const totalDerivas = totalResult[0]?.values[0]?.[0] as number || 0;
 
   const promptsResult = database.exec('SELECT COUNT(*) FROM prompts_seguidos');
-  const totalPrompts = promptsResult.length > 0 && promptsResult[0].values.length > 0 
-    ? (promptsResult[0].values[0][0] as number) || 0 
-    : 0;
+  const totalPrompts = promptsResult[0]?.values[0]?.[0] as number || 0;
 
   const tempoResult = database.exec('SELECT COALESCE(SUM(duracao), 0) FROM derivas');
-  const totalMinutos = tempoResult.length > 0 && tempoResult[0].values.length > 0 
-    ? (tempoResult[0].values[0][0] as number) || 0 
-    : 0;
+  const totalMinutos = tempoResult[0]?.values[0]?.[0] as number || 0;
 
   const humorResult = database.exec('SELECT COALESCE(AVG(humor), 0) FROM derivas');
-  const mediaHumorVal = humorResult.length > 0 && humorResult[0].values.length > 0 
-    ? (humorResult[0].values[0][0] as number) || 0 
-    : 0;
-  const mediaHumor = mediaHumorVal.toFixed(1);
+  const mediaHumor = (humorResult[0]?.values[0]?.[0] as number || 0).toFixed(1);
 
   const descResult = database.exec('SELECT COUNT(*) FROM descobertas');
-  const totalDescobertas = descResult.length > 0 && descResult[0].values.length > 0 
-    ? (descResult[0].values[0][0] as number) || 0 
-    : 0;
+  const totalDescobertas = descResult[0]?.values[0]?.[0] as number || 0;
 
   return { totalDerivas, totalPrompts, totalMinutos, mediaHumor, totalDescobertas };
 }

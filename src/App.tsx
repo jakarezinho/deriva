@@ -23,21 +23,43 @@ function App() {
   const [page, setPage] = useState<Page>('home');
   const [dbReady, setDbReady] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [dbLoading, setDbLoading] = useState(true);
   const [derivaAtiva, setDerivaAtiva] = useState<DerivaCompleta | null>(null);
   const [derivas, setDerivas] = useState<DerivaCompleta[]>([]);
   const [config, setConfig] = useState<DerivaConfig>({ nomeDerivante: 'Derivante', cidadeBase: '', temaPreferido: '' });
 
   // Inicializar banco de dados
-  useEffect(() => {
-    initDatabase().then(() => {
+  const initializeDb = useCallback(async () => {
+    setDbLoading(true);
+    setDbError(null);
+    
+    try {
+      console.log('Iniciando banco de dados...');
+      await initDatabase();
+      console.log('Banco de dados inicializado com sucesso');
+      
       setDbReady(true);
+      setDbLoading(false);
       setDerivas(getAllDerivas());
       setConfig(getConfig());
-    }).catch(err => {
+    } catch (err) {
       console.error('Erro ao inicializar banco:', err);
-      setDbError(err instanceof Error ? err.message : 'Erro desconhecido ao inicializar banco de dados');
-    });
+      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido ao inicializar banco de dados';
+      setDbError(errorMsg);
+      setDbLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    initializeDb();
+  }, [initializeDb]);
+
+  const handleRetry = () => {
+    // Resetar estado e tentar novamente
+    setDbReady(false);
+    setDbError(null);
+    initializeDb();
+  };
 
   const refreshDerivas = () => {
     setDerivas(getAllDerivas());
@@ -63,26 +85,38 @@ function App() {
     setConfig(newConfig);
   };
 
-  if (!dbReady) {
+  if (dbLoading || !dbReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0f' }}>
+        <div className="text-center px-4">
           {dbError ? (
             <>
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-deriva-danger mb-2">Erro ao inicializar banco de dados</p>
-              <p className="text-deriva-muted text-sm max-w-md">{dbError}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-deriva-accent/10 text-deriva-accent border border-deriva-accent/30 rounded-lg text-sm hover:bg-deriva-accent/20 transition-colors"
-              >
-                Tentar novamente
-              </button>
+              <div className="text-5xl mb-4">⚠️</div>
+              <p className="text-deriva-danger mb-2 text-lg font-bold">Erro ao inicializar banco de dados</p>
+              <p className="text-deriva-muted text-sm max-w-md mb-4">{dbError}</p>
+              <div className="space-y-2">
+                <button
+                  onClick={handleRetry}
+                  className="px-6 py-3 bg-deriva-accent/10 text-deriva-accent border border-deriva-accent/30 rounded-lg text-sm hover:bg-deriva-accent/20 transition-colors block w-full"
+                >
+                  Tentar novamente
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-white/5 text-deriva-muted border border-deriva-border rounded-lg text-sm hover:bg-white/10 transition-colors block w-full"
+                >
+                  Recarregar página
+                </button>
+              </div>
+              <p className="text-deriva-muted/40 text-xs mt-6 max-w-sm">
+                Verifique sua conexão com a internet. O banco de dados precisa carregar arquivos do servidor.
+              </p>
             </>
           ) : (
             <>
-              <div className="text-4xl mb-4 animate-pulse-slow">◉</div>
-              <p className="text-deriva-muted">Inicializando banco de dados...</p>
+              <div className="text-5xl mb-4 animate-pulse-slow">◉</div>
+              <p className="text-deriva-muted text-lg">Inicializando banco de dados...</p>
+              <p className="text-deriva-muted/50 text-xs mt-2">Carregando SQLite via WebAssembly</p>
             </>
           )}
         </div>
