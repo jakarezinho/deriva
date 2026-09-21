@@ -3,7 +3,6 @@ let derivaAtiva = null;
 let currentPrompts = [];
 let usedPromptIds = [];
 let selectedCategory = '';
-let descobertas = [];
 let humor = 3;
 let clima = '';
 let startTime = '';
@@ -11,6 +10,20 @@ let localizacaoAtual = null;
 let mapa = null;
 let markers = [];
 let watchId = null;
+let promptAtivo = null; // Prompt atualmente em execução
+let promptAtivoInicio = null; // Timestamp de quando o prompt ativo começou
+
+// Novos campos de registos
+let registos = {
+    descobertas: [],
+    pensamentos: [],
+    encontros: [],
+    frases: [],
+    objetos: [],
+    atmosfera: [],
+    desejos: [],
+    acasos: []
+};
 
 // Chave para localStorage
 const DERIVA_ATIVA_KEY = 'deriva_ativa';
@@ -28,11 +41,13 @@ function salvarEstadoDeriva() {
     currentPrompts,
     usedPromptIds,
     selectedCategory,
-    descobertas,
+    registos,
     humor,
     clima,
     startTime,
     pontosTrajeto,
+    promptAtivo,
+    promptAtivoInicio,
     timestamp: Date.now()
   };
   
@@ -66,11 +81,22 @@ function restaurarEstadoDeriva() {
     currentPrompts = estado.currentPrompts || [];
     usedPromptIds = estado.usedPromptIds || [];
     selectedCategory = estado.selectedCategory || '';
-    descobertas = estado.descobertas || [];
+    registos = estado.registos || {
+        descobertas: [],
+        pensamentos: [],
+        encontros: [],
+        frases: [],
+        objetos: [],
+        atmosfera: [],
+        desejos: [],
+        acasos: []
+    };
     humor = estado.humor || 3;
     clima = estado.clima || '';
     startTime = estado.startTime || '';
     pontosTrajeto = estado.pontosTrajeto || [];
+    promptAtivo = estado.promptAtivo || null;
+    promptAtivoInicio = estado.promptAtivoInicio || null;
     
     console.log('Estado da deriva restaurado do localStorage');
     return true;
@@ -272,27 +298,61 @@ async function loadDerivas() {
     const response = await fetch(API_URL);
     const derivas = await response.json();
     
-    document.getElementById('total-derivas').textContent = `${derivas.length} deriva${derivas.length !== 1 ? 's' : ''} registrada${derivas.length !== 1 ? 's' : ''}`;
+    // Separar derivas pausadas das finalizadas
+    const pausadas = derivas.filter(d => d.estado === 'pausada');
+    const finalizadas = derivas.filter(d => d.estado === 'finalizada' || !d.estado);
     
+    document.getElementById('total-derivas').textContent = `${finalizadas.length} deriva${finalizadas.length !== 1 ? 's' : ''} finalizada${finalizadas.length !== 1 ? 's' : ''}`;
+    
+    // Mostrar secção de pausadas se houver
+    const pausadasSection = document.getElementById('pausadas-section');
+    const pausadasContainer = document.getElementById('pausadas-list');
+    
+    if (pausadas.length > 0) {
+      pausadasSection.style.display = 'block';
+      pausadasContainer.innerHTML = pausadas.map(deriva => `
+        <div class="historico-item pausada" onclick="showDetalhes('${deriva.id}')">
+          <div class="historico-header">
+            <div>
+              <div class="historico-date">
+                ⏸️ ${formatDate(deriva.data_inicio)}
+                ${deriva.clima ? `<span class="historico-clima">${deriva.clima}</span>` : ''}
+              </div>
+              ${deriva.local_inicio ? `<p class="historico-local">${deriva.local_inicio}</p>` : ''}
+              <div class="historico-meta">
+                <span>${deriva.promptsSeguidos.length} prompts</span>
+                ${deriva.duracao ? `<span>${deriva.duracao} min</span>` : ''}
+              </div>
+            </div>
+            <button class="historico-delete" onclick="event.stopPropagation(); confirmarExclusao('${deriva.id}')">✕</button>
+          </div>
+          <button class="btn-continue" onclick="event.stopPropagation(); continuarDeriva('${deriva.id}')">Continuar →</button>
+        </div>
+      `).join('');
+    } else {
+      pausadasSection.style.display = 'none';
+    }
+    
+    // Mostrar derivas finalizadas
     const container = document.getElementById('historico-list');
     
-    if (derivas.length === 0) {
+    if (finalizadas.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">◉</div>
-          <p class="empty-text">Nenhuma deriva registrada ainda.</p>
+          <p class="empty-text">Nenhuma deriva finalizada ainda.</p>
           <p class="empty-subtext">Saia e comece a caminhar sem rumo.</p>
         </div>
       `;
       return;
     }
     
-    container.innerHTML = derivas.map(deriva => `
+    container.innerHTML = finalizadas.map(deriva => `
       <div class="historico-item" onclick="showDetalhes('${deriva.id}')">
         <div class="historico-header">
           <div>
             <div class="historico-date">
-              ${formatDate(deriva.data_inicio)}
+              ✓ ${formatDate(deriva.data_inicio)}
               ${deriva.clima ? `<span class="historico-clima">${deriva.clima}</span>` : ''}
             </div>
             ${deriva.local_inicio ? `<p class="historico-local">${deriva.local_inicio}</p>` : ''}
@@ -431,13 +491,28 @@ async function iniciarDeriva() {
     id: generateId(),
     data_inicio: new Date().toISOString(),
     promptsSeguidos: [],
-    descobertas: []
+    estado: 'em_curso'
   };
   
   startTime = derivaAtiva.data_inicio;
   currentPrompts = getRandomPrompts(5);
   usedPromptIds = currentPrompts.map(p => p.id);
-  descobertas = [];
+  
+  // Resetar registos
+  registos = {
+    descobertas: [],
+    pensamentos: [],
+    encontros: [],
+    frases: [],
+    objetos: [],
+    atmosfera: [],
+    desejos: [],
+    acasos: []
+  };
+  
+  // Resetar prompt ativo
+  promptAtivo = null;
+  promptAtivoInicio = null;
   
   // Iniciar geolocalização
   iniciarGeolocalizacao();
@@ -456,6 +531,7 @@ async function iniciarDeriva() {
   document.getElementById('deriva-active').style.display = 'block';
   
   renderPrompts();
+  renderRegistos();
   updateDerivaInfo();
 }
 
@@ -463,14 +539,20 @@ function renderPrompts() {
   const container = document.getElementById('prompts-container');
   container.innerHTML = currentPrompts.map((prompt, index) => {
     const cat = categories.find(c => c.id === prompt.category);
+    const isAtivo = promptAtivo && promptAtivo.id === prompt.id;
+    const className = isAtivo ? 'prompt-card ativo' : 'prompt-card inativo';
+    
     return `
-      <div class="prompt-card">
+      <div class="${className}">
         <span class="prompt-icon">${cat ? cat.icon : '◉'}</span>
         <div class="prompt-content">
           <p class="prompt-text">${prompt.text}</p>
+          ${isAtivo ? `<p class="prompt-timer">⏱️ Em execução há ${getTempoDecorrido(promptAtivoInicio)}</p>` : ''}
           <div class="prompt-meta">
             <span class="prompt-category">${cat ? cat.label : ''}</span>
-            <button class="prompt-action" onclick="seguirPrompt(${prompt.id})">Segui este →</button>
+            <button class="prompt-action" onclick="seguirPrompt(${prompt.id})">
+              ${isAtivo ? '✓ Concluído' : 'Segui este →'}
+            </button>
           </div>
         </div>
       </div>
@@ -478,16 +560,39 @@ function renderPrompts() {
   }).join('');
 }
 
+function getTempoDecorrido(timestamp) {
+  const segundos = Math.floor((Date.now() - timestamp) / 1000);
+  if (segundos < 60) return `${segundos}s`;
+  const minutos = Math.floor(segundos / 60);
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  return `${horas}h ${minutos % 60}min`;
+}
+
 function seguirPrompt(promptId) {
   const prompt = currentPrompts.find(p => p.id === promptId);
   if (!prompt || !derivaAtiva) return;
+  
+  // Se já existe um prompt ativo, marcar como concluído
+  if (promptAtivo) {
+    const promptAnterior = derivaAtiva.promptsSeguidos.find(p => p.promptId === promptAtivo.id);
+    if (promptAnterior) {
+      promptAnterior.fimTimestamp = new Date().toISOString();
+      promptAnterior.duracao = Math.round((Date.now() - new Date(promptAnterior.timestamp).getTime()) / 60000);
+    }
+  }
   
   // Adicionar aos prompts seguidos
   derivaAtiva.promptsSeguidos.push({
     promptId: prompt.id,
     promptText: prompt.text,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    categoria: prompt.category
   });
+  
+  // Marcar como prompt ativo
+  promptAtivo = prompt;
+  promptAtivoInicio = Date.now();
   
   // Substituir por novo prompt
   const newPrompt = selectedCategory
@@ -501,6 +606,7 @@ function seguirPrompt(promptId) {
   salvarEstadoDeriva();
   
   renderPrompts();
+  renderDiario();
   updateDerivaInfo();
 }
 
@@ -614,7 +720,8 @@ async function finalizarDeriva() {
     local_inicio: localInicio,
     localizacao_fim: localizacaoFim,
     distancia: distanciaTotal > 0 ? distanciaTotal : null,
-    descobertas
+    registos,
+    estado: 'finalizada'
   };
   
   try {
@@ -1061,6 +1168,189 @@ function calcularDistancia(lat1, lng1, lat2, lng2) {
     Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+}
+
+// ============ DIÁRIO DE BORDO ============
+
+function toggleDiario() {
+  const diario = document.getElementById('diario-bordo');
+  if (diario.style.display === 'none') {
+    diario.style.display = 'block';
+    renderDiario();
+  } else {
+    diario.style.display = 'none';
+  }
+}
+
+function renderDiario() {
+  const container = document.getElementById('diario-list');
+  if (!derivaAtiva || derivaAtiva.promptsSeguidos.length === 0) {
+    container.innerHTML = '<p style="color: #6b6b80; text-align: center; padding: 2rem;">Ainda não seguiste nenhum prompt.</p>';
+    return;
+  }
+  
+  container.innerHTML = derivaAtiva.promptsSeguidos.map((prompt, index) => {
+    const cat = categories.find(c => c.id === prompt.categoria);
+    const hora = new Date(prompt.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const isAtual = promptAtivo && promptAtivo.id === prompt.promptId;
+    const duracao = prompt.duracao ? `${prompt.duracao} min` : (isAtual ? `Em execução há ${getTempoDecorrido(promptAtivoInicio)}` : '');
+    
+    return `
+      <div class="diario-item ${isAtual ? 'atual' : ''}">
+        <div class="diario-hora">${hora}</div>
+        <div class="diario-conteudo">
+          <div class="diario-prompt">${cat ? cat.icon : '◉'} ${prompt.promptText}</div>
+          ${duracao ? `<div class="diario-meta">${isAtual ? '⏱️' : '✓'} ${duracao}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).reverse().join('');
+}
+
+// ============ TABS E REGISTOS ============
+
+function showTab(tabName) {
+  // Remover active de todas as tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // Ativar tab selecionada
+  event.target.classList.add('active');
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+function adicionarRegisto(tipo) {
+  const input = document.getElementById(`novo-${tipo.slice(0, -1)}`);
+  const texto = input.value.trim();
+  
+  if (texto) {
+    registos[tipo].push({
+      texto: texto,
+      timestamp: new Date().toISOString()
+    });
+    input.value = '';
+    salvarEstadoDeriva();
+    renderRegistos();
+  }
+}
+
+function removerRegisto(tipo, index) {
+  registos[tipo].splice(index, 1);
+  salvarEstadoDeriva();
+  renderRegistos();
+}
+
+function renderRegistos() {
+  Object.keys(registos).forEach(tipo => {
+    const container = document.getElementById(`${tipo}-list`);
+    if (container) {
+      container.innerHTML = registos[tipo].map((registo, index) => `
+        <div class="registo-item">
+          <span>${registo.texto}</span>
+          <button onclick="removerRegisto('${tipo}', ${index})">✕</button>
+        </div>
+      `).join('');
+    }
+  });
+}
+
+// ============ PAUSAR E CONTINUAR DERIVA ============
+
+async function pausarDeriva() {
+  if (!derivaAtiva) return;
+  
+  if (confirm('Pausar deriva? Podes continuar mais tarde.')) {
+    // Parar geolocalização
+    pararGeolocalizacao();
+    
+    // Marcar como pausada
+    derivaAtiva.estado = 'pausada';
+    
+    // Guardar no servidor
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...derivaAtiva,
+          registos,
+          local_inicio: document.getElementById('local-inicio').value
+        })
+      });
+      
+      // Limpar estado local
+      limparEstadoDeriva();
+      
+      // Resetar variáveis
+      derivaAtiva = null;
+      currentPrompts = [];
+      usedPromptIds = [];
+      promptAtivo = null;
+      promptAtivoInicio = null;
+      
+      // Voltar à página inicial
+      document.getElementById('deriva-start').style.display = 'block';
+      document.getElementById('deriva-active').style.display = 'none';
+      
+      alert('Deriva pausada! Podes continuar mais tarde.');
+      showPage('home');
+    } catch (error) {
+      alert('Erro ao pausar deriva: ' + error.message);
+    }
+  }
+}
+
+async function continuarDeriva(id) {
+  try {
+    const response = await fetch(`${API_URL}?id=${id}`);
+    const deriva = await response.json();
+    
+    // Restaurar estado
+    derivaAtiva = deriva;
+    derivaAtiva.estado = 'em_curso';
+    
+    // Restaurar prompts
+    currentPrompts = getRandomPrompts(5);
+    usedPromptIds = deriva.promptsSeguidos.map(p => p.promptId);
+    
+    // Restaurar registos
+    registos = deriva.registos || {
+      descobertas: [],
+      pensamentos: [],
+      encontros: [],
+      frases: [],
+      objetos: [],
+      atmosfera: [],
+      desejos: [],
+      acasos: []
+    };
+    
+    // Restaurar prompt ativo (último prompt seguido)
+    if (deriva.promptsSeguidos.length > 0) {
+      const ultimoPrompt = deriva.promptsSeguidos[deriva.promptsSeguidos.length - 1];
+      const promptObj = prompts.find(p => p.id === ultimoPrompt.promptId);
+      if (promptObj) {
+        promptAtivo = promptObj;
+        promptAtivoInicio = Date.now();
+      }
+    }
+    
+    // Iniciar geolocalização
+    iniciarGeolocalizacao();
+    
+    // Mostrar interface
+    document.getElementById('deriva-start').style.display = 'none';
+    document.getElementById('deriva-active').style.display = 'block';
+    
+    renderPrompts();
+    renderRegistos();
+    updateDerivaInfo();
+    
+    showPage('deriva');
+    alert('Deriva continuada!');
+  } catch (error) {
+    alert('Erro ao continuar deriva: ' + error.message);
+  }
 }
 
 // ============ GEOLOCALIZAÇÃO ============
