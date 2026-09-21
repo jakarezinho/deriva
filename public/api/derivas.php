@@ -178,6 +178,13 @@ function getAllDerivas($db) {
         unset($row['localizacao_fim_lat']);
         unset($row['localizacao_fim_lng']);
         
+        // Decodificar registos
+        if ($row['registos']) {
+            $row['registos'] = json_decode($row['registos'], true);
+        } else {
+            $row['registos'] = null;
+        }
+        
         $derivas[] = $row;
     }
     
@@ -223,6 +230,13 @@ function getDeriva($db, $id) {
     unset($deriva['localizacao_fim_lat']);
     unset($deriva['localizacao_fim_lng']);
     
+    // Decodificar registos
+    if ($deriva['registos']) {
+        $deriva['registos'] = json_decode($deriva['registos'], true);
+    } else {
+        $deriva['registos'] = null;
+    }
+    
     jsonResponse($deriva);
 }
 
@@ -250,8 +264,8 @@ function createDeriva($db) {
     }
     
     $stmt = $db->prepare('
-        INSERT INTO derivas (id, data_inicio, data_fim, duracao, local_inicio, local_fim, notas, humor, clima, distancia, localizacao_inicio_lat, localizacao_inicio_lng, localizacao_fim_lat, localizacao_fim_lng)
-        VALUES (:id, :data_inicio, :data_fim, :duracao, :local_inicio, :local_fim, :notas, :humor, :clima, :distancia, :loc_inicio_lat, :loc_inicio_lng, :loc_fim_lat, :loc_fim_lng)
+        INSERT INTO derivas (id, data_inicio, data_fim, duracao, local_inicio, local_fim, notas, humor, clima, distancia, localizacao_inicio_lat, localizacao_inicio_lng, localizacao_fim_lat, localizacao_fim_lng, estado, registos)
+        VALUES (:id, :data_inicio, :data_fim, :duracao, :local_inicio, :local_fim, :notas, :humor, :clima, :distancia, :loc_inicio_lat, :loc_inicio_lng, :loc_fim_lat, :loc_fim_lng, :estado, :registos)
     ');
     
     $stmt->bindValue(':id', $data['id'], SQLITE3_TEXT);
@@ -268,6 +282,8 @@ function createDeriva($db) {
     $stmt->bindValue(':loc_inicio_lng', $locInicioLng, SQLITE3_FLOAT);
     $stmt->bindValue(':loc_fim_lat', $locFimLat, SQLITE3_FLOAT);
     $stmt->bindValue(':loc_fim_lng', $locFimLng, SQLITE3_FLOAT);
+    $stmt->bindValue(':estado', $data['estado'] ?? 'finalizada', SQLITE3_TEXT);
+    $stmt->bindValue(':registos', isset($data['registos']) ? json_encode($data['registos']) : null, SQLITE3_TEXT);
     
     $stmt->execute();
     
@@ -345,6 +361,8 @@ function updateDeriva($db) {
             localizacao_inicio_lng = :loc_inicio_lng,
             localizacao_fim_lat = :loc_fim_lat,
             localizacao_fim_lng = :loc_fim_lng,
+            estado = :estado,
+            registos = :registos,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
     ');
@@ -361,6 +379,8 @@ function updateDeriva($db) {
     $stmt->bindValue(':loc_inicio_lng', $locInicioLng, SQLITE3_FLOAT);
     $stmt->bindValue(':loc_fim_lat', $locFimLat, SQLITE3_FLOAT);
     $stmt->bindValue(':loc_fim_lng', $locFimLng, SQLITE3_FLOAT);
+    $stmt->bindValue(':estado', $data['estado'] ?? 'finalizada', SQLITE3_TEXT);
+    $stmt->bindValue(':registos', isset($data['registos']) ? json_encode($data['registos']) : null, SQLITE3_TEXT);
     $stmt->bindValue(':id', $id, SQLITE3_TEXT);
     
     $stmt->execute();

@@ -1186,3 +1186,208 @@ body {
 .custom-div-icon div {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
+
+/* Tabs */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(30, 30, 46, 0.5);
+}
+
+.tab-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(30, 30, 46, 0.5);
+    border-radius: 0.5rem;
+    color: #6b6b80;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e2e8;
+}
+
+.tab-btn.active {
+    background: rgba(192, 132, 252, 0.1);
+    color: #c084fc;
+    border-color: rgba(192, 132, 252, 0.3);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.tab-input {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tab-input .input {
+    flex: 1;
+}
+
+.registos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.registo-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(30, 30, 46, 0.5);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #e2e2e8;
+}
+
+.registo-item span {
+    flex: 1;
+}
+
+.registo-item button {
+    background: none;
+    border: none;
+    color: #6b6b80;
+    cursor: pointer;
+    padding: 0.25rem;
+    transition: color 0.2s;
+}
+
+.registo-item button:hover {
+    color: #f87171;
+}
+
+/* Prompt Ativo */
+.prompt-card.ativo {
+    border-color: rgba(52, 211, 153, 0.5);
+    background: rgba(52, 211, 153, 0.05);
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.1);
+}
+
+.prompt-card.ativo .prompt-text {
+    color: #34d399;
+    font-weight: 500;
+}
+
+.prompt-card.ativo .prompt-action {
+    background: rgba(52, 211, 153, 0.2);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.4);
+}
+
+.prompt-card.inativo {
+    opacity: 0.5;
+}
+
+.prompt-timer {
+    font-size: 0.75rem;
+    color: #34d399;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* Diário de Bordo */
+.diario-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.diario-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(30, 30, 46, 0.5);
+    border-radius: 0.5rem;
+}
+
+.diario-item.atual {
+    border-color: rgba(52, 211, 153, 0.5);
+    background: rgba(52, 211, 153, 0.05);
+}
+
+.diario-hora {
+    font-size: 0.75rem;
+    color: #6b6b80;
+    min-width: 50px;
+}
+
+.diario-conteudo {
+    flex: 1;
+}
+
+.diario-prompt {
+    font-size: 0.875rem;
+    color: #e2e2e8;
+    margin-bottom: 0.25rem;
+}
+
+.diario-meta {
+    font-size: 0.75rem;
+    color: #6b6b80;
+}
+
+.diario-item.atual .diario-prompt {
+    color: #34d399;
+    font-weight: 500;
+}
+
+/* Botão Warning */
+.btn-warning {
+    padding: 0.5rem 1rem;
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-warning:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+/* Deriva Pausada */
+.historico-item.pausada {
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.historico-item.pausada .historico-date {
+    color: #f59e0b;
+}
+
+.btn-continue {
+    padding: 0.5rem 1rem;
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.5rem;
+}
+
+.btn-continue:hover {
+    background: rgba(245, 158, 11, 0.2);
+}

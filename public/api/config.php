@@ -53,6 +53,8 @@ function getDB() {
                 localizacao_inicio_lng REAL,
                 localizacao_fim_lat REAL,
                 localizacao_fim_lng REAL,
+                estado TEXT DEFAULT "finalizada",
+                registos TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )

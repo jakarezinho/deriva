@@ -124,10 +124,21 @@
                             <h1 class="deriva-title">Deriva em Curso</h1>
                             <p class="deriva-info" id="deriva-info">0 prompts seguidos</p>
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-danger" onclick="abandonarDeriva()" title="Abandonar deriva sem salvar">✕</button>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-secondary" onclick="toggleDiario()" title="Ver diário de bordo">📜</button>
+                            <button class="btn-warning" onclick="pausarDeriva()" title="Pausar deriva">⏸️</button>
+                            <button class="btn-danger" onclick="abandonarDeriva()" title="Abandonar deriva">✕</button>
                             <button class="btn-success" onclick="showFinishModal()">Finalizar ✓</button>
                         </div>
+                    </div>
+
+                    <!-- Diário de Bordo -->
+                    <div id="diario-bordo" class="card" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>📜 Diário de Bordo</h3>
+                            <button class="btn-secondary" onclick="toggleDiario()" style="padding: 0.25rem 0.5rem;">✕</button>
+                        </div>
+                        <div id="diario-list" class="diario-list"></div>
                     </div>
 
                     <div id="prompts-container" class="prompts-list"></div>
@@ -142,13 +153,82 @@
                         <div id="all-prompts-list" class="all-prompts-list"></div>
                     </div>
 
+                    <!-- Registos da Deriva com Tabs -->
                     <div class="card">
-                        <h3>✍️ Descobertas no Caminho</h3>
-                        <div class="descobertas-input">
-                            <input type="text" id="nova-descoberta" placeholder="O que você encontrou?" class="input">
-                            <button class="btn-accent" onclick="adicionarDescoberta()">+</button>
+                        <div class="tabs">
+                            <button class="tab-btn active" onclick="showTab('descobertas')">🔍 Descobertas</button>
+                            <button class="tab-btn" onclick="showTab('pensamentos')">💭 Pensamentos</button>
+                            <button class="tab-btn" onclick="showTab('encontros')">🎭 Encontros</button>
+                            <button class="tab-btn" onclick="showTab('frases')">🗣️ Frases</button>
+                            <button class="tab-btn" onclick="showTab('objetos')">🎁 Objetos</button>
+                            <button class="tab-btn" onclick="showTab('atmosfera')">🌡️ Atmosfera</button>
+                            <button class="tab-btn" onclick="showTab('desejos')">💫 Desejos</button>
+                            <button class="tab-btn" onclick="showTab('acasos')">🎲 Acasos</button>
                         </div>
-                        <div id="descobertas-list" class="descobertas-list"></div>
+
+                        <div id="tab-descobertas" class="tab-content active">
+                            <div class="tab-input">
+                                <input type="text" id="nova-descoberta" placeholder="O que você encontrou?" class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('descobertas')">+</button>
+                            </div>
+                            <div id="descobertas-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-pensamentos" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="novo-pensamento" placeholder="Pensamento errante..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('pensamentos')">+</button>
+                            </div>
+                            <div id="pensamentos-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-encontros" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="novo-encontro" placeholder="Pessoa, animal, situação..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('encontros')">+</button>
+                            </div>
+                            <div id="encontros-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-frases" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="nova-frase" placeholder="Frase ouvida..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('frases')">+</button>
+                            </div>
+                            <div id="frases-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-objetos" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="novo-objeto" placeholder="Objeto encontrado..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('objetos')">+</button>
+                            </div>
+                            <div id="objetos-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-atmosfera" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="nova-atmosfera" placeholder="Atmosfera do lugar..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('atmosfera')">+</button>
+                            </div>
+                            <div id="atmosfera-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-desejos" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="novo-desejo" placeholder="Desejo despertado..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('desejos')">+</button>
+                            </div>
+                            <div id="desejos-list" class="registos-list"></div>
+                        </div>
+
+                        <div id="tab-acasos" class="tab-content">
+                            <div class="tab-input">
+                                <input type="text" id="novo-acaso" placeholder="Acaso significativo..." class="input">
+                                <button class="btn-accent" onclick="adicionarRegisto('acasos')">+</button>
+                            </div>
+                            <div id="acasos-list" class="registos-list"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -189,7 +269,17 @@
 
                 <div class="stats-grid" id="stats-grid"></div>
 
-                <div id="historico-list" class="historico-list"></div>
+                <!-- Derivas Pausadas -->
+                <div id="pausadas-section" style="display: none; margin-bottom: 2rem;">
+                    <h2 style="font-family: 'Georgia', serif; color: #f59e0b; margin-bottom: 1rem;">⏸️ Derivas Pausadas</h2>
+                    <div id="pausadas-list" class="historico-list"></div>
+                </div>
+
+                <!-- Derivas Finalizadas -->
+                <div id="finalizadas-section">
+                    <h2 style="font-family: 'Georgia', serif; color: #34d399; margin-bottom: 1rem;">✓ Derivas Finalizadas</h2>
+                    <div id="historico-list" class="historico-list"></div>
+                </div>
             </div>
         </div>
 
