@@ -58,6 +58,19 @@ function getDB() {
             )
         ');
         
+        // Tabela para rastrear o trajeto completo da deriva
+        $db->exec('
+            CREATE TABLE IF NOT EXISTS pontos_trajeto (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                deriva_id TEXT NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                accuracy REAL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
+            )
+        ');
+        
         $db->exec('
             CREATE TABLE IF NOT EXISTS prompts_seguidos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
