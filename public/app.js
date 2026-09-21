@@ -12,6 +12,80 @@ let mapa = null;
 let markers = [];
 let watchId = null;
 
+// Chave para localStorage
+const DERIVA_ATIVA_KEY = 'deriva_ativa';
+
+// ============ PERSISTÊNCIA LOCAL ============
+
+function salvarEstadoDeriva() {
+  if (!derivaAtiva) {
+    localStorage.removeItem(DERIVA_ATIVA_KEY);
+    return;
+  }
+  
+  const estado = {
+    derivaAtiva,
+    currentPrompts,
+    usedPromptIds,
+    selectedCategory,
+    descobertas,
+    humor,
+    clima,
+    startTime,
+    pontosTrajeto,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(DERIVA_ATIVA_KEY, JSON.stringify(estado));
+    console.log('Estado da deriva guardado no localStorage');
+  } catch (error) {
+    console.error('Erro ao guardar estado da deriva:', error);
+  }
+}
+
+function restaurarEstadoDeriva() {
+  try {
+    const estadoStr = localStorage.getItem(DERIVA_ATIVA_KEY);
+    if (!estadoStr) return false;
+    
+    const estado = JSON.parse(estadoStr);
+    
+    // Verificar se o estado não é muito antigo (mais de 24 horas)
+    const idade = Date.now() - estado.timestamp;
+    const horas = idade / (1000 * 60 * 60);
+    
+    if (horas > 24) {
+      console.log('Estado da deriva muito antigo, ignorando');
+      localStorage.removeItem(DERIVA_ATIVA_KEY);
+      return false;
+    }
+    
+    // Restaurar estado
+    derivaAtiva = estado.derivaAtiva;
+    currentPrompts = estado.currentPrompts || [];
+    usedPromptIds = estado.usedPromptIds || [];
+    selectedCategory = estado.selectedCategory || '';
+    descobertas = estado.descobertas || [];
+    humor = estado.humor || 3;
+    clima = estado.clima || '';
+    startTime = estado.startTime || '';
+    pontosTrajeto = estado.pontosTrajeto || [];
+    
+    console.log('Estado da deriva restaurado do localStorage');
+    return true;
+  } catch (error) {
+    console.error('Erro ao restaurar estado da deriva:', error);
+    localStorage.removeItem(DERIVA_ATIVA_KEY);
+    return false;
+  }
+}
+
+function limparEstadoDeriva() {
+  localStorage.removeItem(DERIVA_ATIVA_KEY);
+  console.log('Estado da deriva limpo do localStorage');
+}
+
 // API
 const API_URL = 'api/derivas.php';
 
@@ -26,6 +100,29 @@ async function initApp() {
     const response = await fetch(API_URL);
     if (!response.ok) throw new Error('API não disponível');
     
+    // Verificar se existe uma deriva em curso no localStorage
+    const temDerivaRestaurada = restaurarEstadoDeriva();
+    
+    if (temDerivaRestaurada) {
+      console.log('Deriva em curso encontrada, restaurando...');
+      // Mostrar interface de deriva ativa
+      document.getElementById('deriva-start').style.display = 'none';
+      document.getElementById('deriva-active').style.display = 'block';
+      
+      // Restaurar UI
+      renderPrompts();
+      renderDescobertas();
+      updateDerivaInfo();
+      
+      // Reiniciar geolocalização
+      iniciarGeolocalizacao();
+      
+      // Mostrar notificação
+      setTimeout(() => {
+        alert('Deriva anterior restaurada! Pode continuar a sua deriva.');
+      }, 500);
+    }
+    
     // Carregar dados
     await loadConfig();
     await loadDerivas();
@@ -36,6 +133,9 @@ async function initApp() {
     renderFilterButtons();
     renderHumorButtons();
     renderClimaButtons();
+    
+    // Configurar Page Visibility API
+    configurarPageVisibility();
     
     // Esconder loading
     document.getElementById('loading').style.display = 'none';
@@ -49,6 +149,48 @@ async function initApp() {
         <button onclick="location.reload()" style="padding: 0.5rem 1rem; background: rgba(192, 132, 252, 0.1); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.3); border-radius: 0.5rem; cursor: pointer;">Tentar novamente</button>
       </div>
     `;
+  }
+}
+
+// Page Visibility API - guardar estado quando a página fica invisível
+function configurarPageVisibility() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && derivaAtiva) {
+      console.log('Página ficou invisível, guardando estado da deriva...');
+      salvarEstadoDeriva();
+    }
+  });
+  
+  // Também guardar antes de fechar a página
+  window.addEventListener('beforeunload', () => {
+    if (derivaAtiva) {
+      salvarEstadoDeriva();
+    }
+  });
+}
+
+// Abandonar deriva sem salvar
+function abandonarDeriva() {
+  if (confirm('Tem certeza que deseja abandonar esta deriva? Todos os dados serão perdidos.')) {
+    // Parar geolocalização
+    pararGeolocalizacao();
+    
+    // Limpar estado
+    derivaAtiva = null;
+    currentPrompts = [];
+    usedPromptIds = [];
+    descobertas = [];
+    humor = 3;
+    clima = '';
+    pontosTrajeto = [];
+    
+    // Limpar localStorage
+    limparEstadoDeriva();
+    
+    // Resetar UI
+    document.getElementById('deriva-start').style.display = 'block';
+    document.getElementById('deriva-active').style.display = 'none';
+    document.getElementById('notas-deriva').value = '';
   }
 }
 
@@ -306,6 +448,9 @@ async function iniciarDeriva() {
     derivaAtiva.localizacao_inicio = localizacaoInicio;
   }
   
+  // Guardar estado inicial
+  salvarEstadoDeriva();
+  
   // Mostrar interface de deriva ativa
   document.getElementById('deriva-start').style.display = 'none';
   document.getElementById('deriva-active').style.display = 'block';
@@ -352,6 +497,9 @@ function seguirPrompt(promptId) {
   currentPrompts = currentPrompts.map(p => p.id === promptId ? newPrompt : p);
   usedPromptIds.push(newPrompt.id);
   
+  // Guardar estado após mudança
+  salvarEstadoDeriva();
+  
   renderPrompts();
   updateDerivaInfo();
 }
@@ -394,6 +542,8 @@ function adicionarDescoberta() {
   if (text) {
     descobertas.push(text);
     input.value = '';
+    // Guardar estado após mudança
+    salvarEstadoDeriva();
     renderDescobertas();
   }
 }
@@ -482,6 +632,9 @@ async function finalizarDeriva() {
       descobertas = [];
       humor = 3;
       clima = '';
+      
+      // Limpar estado do localStorage
+      limparEstadoDeriva();
       
       // Resetar UI
       document.getElementById('deriva-start').style.display = 'block';
@@ -972,6 +1125,9 @@ async function salvarPontoTrajeto(ponto) {
         timestamp: ponto.timestamp
       })
     });
+    
+    // Guardar estado local após salvar ponto
+    salvarEstadoDeriva();
   } catch (error) {
     console.warn('Erro ao salvar ponto do trajeto:', error.message);
   }

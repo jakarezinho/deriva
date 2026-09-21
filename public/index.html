@@ -124,7 +124,10 @@
                             <h1 class="deriva-title">Deriva em Curso</h1>
                             <p class="deriva-info" id="deriva-info">0 prompts seguidos</p>
                         </div>
-                        <button class="btn-success" onclick="showFinishModal()">Finalizar ✓</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-danger" onclick="abandonarDeriva()" title="Abandonar deriva sem salvar">✕</button>
+                            <button class="btn-success" onclick="showFinishModal()">Finalizar ✓</button>
+                        </div>
                     </div>
 
                     <div id="prompts-container" class="prompts-list"></div>
