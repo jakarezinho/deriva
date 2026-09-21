@@ -29,10 +29,23 @@ $isConfig = isset($_GET['config']);
 $isExport = isset($_GET['export']);
 $isImport = isset($_GET['import']);
 
+// Verificar se é uma requisição de ponto de trajeto
+$isPonto = isset($_GET['ponto']);
+
 // Rotas
 try {
+    // Ponto de trajeto (durante a deriva)
+    if ($isPonto) {
+        if ($method === 'POST') {
+            salvarPontoTrajeto($db);
+        } elseif ($method === 'GET' && $id) {
+            getPontosTrajeto($db, $id);
+        } else {
+            jsonError('ID da deriva é obrigatório');
+        }
+    }
     // Config
-    if ($isConfig) {
+    elseif ($isConfig) {
         if ($method === 'GET') {
             getConfig($db);
         } elseif ($method === 'POST') {
@@ -84,6 +97,53 @@ try {
 
 // ============ FUNÇÕES ============
 
+function salvarPontoTrajeto($db) {
+    $data = getInput();
+    
+    if (!$data || !isset($data['deriva_id']) || !isset($data['latitude']) || !isset($data['longitude'])) {
+        jsonError('Dados inválidos: deriva_id, latitude e longitude são obrigatórios');
+    }
+    
+    $stmt = $db->prepare('
+        INSERT INTO pontos_trajeto (deriva_id, latitude, longitude, accuracy, timestamp)
+        VALUES (:deriva_id, :latitude, :longitude, :accuracy, :timestamp)
+    ');
+    
+    $stmt->bindValue(':deriva_id', $data['deriva_id'], SQLITE3_TEXT);
+    $stmt->bindValue(':latitude', $data['latitude'], SQLITE3_FLOAT);
+    $stmt->bindValue(':longitude', $data['longitude'], SQLITE3_FLOAT);
+    $stmt->bindValue(':accuracy', $data['accuracy'] ?? null, SQLITE3_FLOAT);
+    $stmt->bindValue(':timestamp', $data['timestamp'] ?? date('c'), SQLITE3_TEXT);
+    
+    $stmt->execute();
+    
+    jsonResponse(['success' => true], 201);
+}
+
+function getPontosTrajeto($db, $derivaId) {
+    $stmt = $db->prepare('
+        SELECT latitude, longitude, accuracy, timestamp 
+        FROM pontos_trajeto 
+        WHERE deriva_id = :deriva_id 
+        ORDER BY timestamp ASC
+    ');
+    
+    $stmt->bindValue(':deriva_id', $derivaId, SQLITE3_TEXT);
+    $result = $stmt->execute();
+    
+    $pontos = [];
+    while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        $pontos[] = [
+            'lat' => (float)$row['latitude'],
+            'lng' => (float)$row['longitude'],
+            'accuracy' => $row['accuracy'] ? (float)$row['accuracy'] : null,
+            'timestamp' => $row['timestamp']
+        ];
+    }
+    
+    jsonResponse($pontos);
+}
+
 function getAllDerivas($db) {
     $result = $db->query('SELECT * FROM derivas ORDER BY data_inicio DESC');
     $derivas = [];
@@ -91,6 +151,7 @@ function getAllDerivas($db) {
     while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
         $row['promptsSeguidos'] = getPromptsSeguidos($db, $row['id']);
         $row['descobertas'] = getDescobertas($db, $row['id']);
+        $row['trajeto'] = getTrajeto($db, $row['id']);
         
         // Formatar localizações
         if ($row['localizacao_inicio_lat'] && $row['localizacao_inicio_lng']) {
@@ -135,6 +196,7 @@ function getDeriva($db, $id) {
     
     $deriva['promptsSeguidos'] = getPromptsSeguidos($db, $id);
     $deriva['descobertas'] = getDescobertas($db, $id);
+    $deriva['trajeto'] = getTrajeto($db, $id);
     
     // Formatar localizações
     if ($deriva['localizacao_inicio_lat'] && $deriva['localizacao_inicio_lng']) {
@@ -531,4 +593,28 @@ function getDescobertas($db, $derivaId) {
         $descobertas[] = $row['texto'];
     }
     return $descobertas;
+}
+
+function getTrajeto($db, $derivaId) {
+    $stmt = $db->prepare('
+        SELECT latitude, longitude, accuracy, timestamp 
+        FROM pontos_trajeto 
+        WHERE deriva_id = :deriva_id 
+        ORDER BY timestamp ASC
+    ');
+    
+    $stmt->bindValue(':deriva_id', $derivaId, SQLITE3_TEXT);
+    $result = $stmt->execute();
+    
+    $pontos = [];
+    while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        $pontos[] = [
+            'lat' => (float)$row['latitude'],
+            'lng' => (float)$row['longitude'],
+            'accuracy' => $row['accuracy'] ? (float)$row['accuracy'] : null,
+            'timestamp' => $row['timestamp']
+        ];
+    }
+    
+    return $pontos;
 }

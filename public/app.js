@@ -12,6 +12,80 @@ let mapa = null;
 let markers = [];
 let watchId = null;
 
+// Chave para localStorage
+const DERIVA_ATIVA_KEY = 'deriva_ativa';
+
+// ============ PERSISTÊNCIA LOCAL ============
+
+function salvarEstadoDeriva() {
+  if (!derivaAtiva) {
+    localStorage.removeItem(DERIVA_ATIVA_KEY);
+    return;
+  }
+  
+  const estado = {
+    derivaAtiva,
+    currentPrompts,
+    usedPromptIds,
+    selectedCategory,
+    descobertas,
+    humor,
+    clima,
+    startTime,
+    pontosTrajeto,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(DERIVA_ATIVA_KEY, JSON.stringify(estado));
+    console.log('Estado da deriva guardado no localStorage');
+  } catch (error) {
+    console.error('Erro ao guardar estado da deriva:', error);
+  }
+}
+
+function restaurarEstadoDeriva() {
+  try {
+    const estadoStr = localStorage.getItem(DERIVA_ATIVA_KEY);
+    if (!estadoStr) return false;
+    
+    const estado = JSON.parse(estadoStr);
+    
+    // Verificar se o estado não é muito antigo (mais de 24 horas)
+    const idade = Date.now() - estado.timestamp;
+    const horas = idade / (1000 * 60 * 60);
+    
+    if (horas > 24) {
+      console.log('Estado da deriva muito antigo, ignorando');
+      localStorage.removeItem(DERIVA_ATIVA_KEY);
+      return false;
+    }
+    
+    // Restaurar estado
+    derivaAtiva = estado.derivaAtiva;
+    currentPrompts = estado.currentPrompts || [];
+    usedPromptIds = estado.usedPromptIds || [];
+    selectedCategory = estado.selectedCategory || '';
+    descobertas = estado.descobertas || [];
+    humor = estado.humor || 3;
+    clima = estado.clima || '';
+    startTime = estado.startTime || '';
+    pontosTrajeto = estado.pontosTrajeto || [];
+    
+    console.log('Estado da deriva restaurado do localStorage');
+    return true;
+  } catch (error) {
+    console.error('Erro ao restaurar estado da deriva:', error);
+    localStorage.removeItem(DERIVA_ATIVA_KEY);
+    return false;
+  }
+}
+
+function limparEstadoDeriva() {
+  localStorage.removeItem(DERIVA_ATIVA_KEY);
+  console.log('Estado da deriva limpo do localStorage');
+}
+
 // API
 const API_URL = 'api/derivas.php';
 
@@ -26,6 +100,29 @@ async function initApp() {
     const response = await fetch(API_URL);
     if (!response.ok) throw new Error('API não disponível');
     
+    // Verificar se existe uma deriva em curso no localStorage
+    const temDerivaRestaurada = restaurarEstadoDeriva();
+    
+    if (temDerivaRestaurada) {
+      console.log('Deriva em curso encontrada, restaurando...');
+      // Mostrar interface de deriva ativa
+      document.getElementById('deriva-start').style.display = 'none';
+      document.getElementById('deriva-active').style.display = 'block';
+      
+      // Restaurar UI
+      renderPrompts();
+      renderDescobertas();
+      updateDerivaInfo();
+      
+      // Reiniciar geolocalização
+      iniciarGeolocalizacao();
+      
+      // Mostrar notificação
+      setTimeout(() => {
+        alert('Deriva anterior restaurada! Pode continuar a sua deriva.');
+      }, 500);
+    }
+    
     // Carregar dados
     await loadConfig();
     await loadDerivas();
@@ -36,6 +133,9 @@ async function initApp() {
     renderFilterButtons();
     renderHumorButtons();
     renderClimaButtons();
+    
+    // Configurar Page Visibility API
+    configurarPageVisibility();
     
     // Esconder loading
     document.getElementById('loading').style.display = 'none';
@@ -49,6 +149,48 @@ async function initApp() {
         <button onclick="location.reload()" style="padding: 0.5rem 1rem; background: rgba(192, 132, 252, 0.1); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.3); border-radius: 0.5rem; cursor: pointer;">Tentar novamente</button>
       </div>
     `;
+  }
+}
+
+// Page Visibility API - guardar estado quando a página fica invisível
+function configurarPageVisibility() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && derivaAtiva) {
+      console.log('Página ficou invisível, guardando estado da deriva...');
+      salvarEstadoDeriva();
+    }
+  });
+  
+  // Também guardar antes de fechar a página
+  window.addEventListener('beforeunload', () => {
+    if (derivaAtiva) {
+      salvarEstadoDeriva();
+    }
+  });
+}
+
+// Abandonar deriva sem salvar
+function abandonarDeriva() {
+  if (confirm('Tem certeza que deseja abandonar esta deriva? Todos os dados serão perdidos.')) {
+    // Parar geolocalização
+    pararGeolocalizacao();
+    
+    // Limpar estado
+    derivaAtiva = null;
+    currentPrompts = [];
+    usedPromptIds = [];
+    descobertas = [];
+    humor = 3;
+    clima = '';
+    pontosTrajeto = [];
+    
+    // Limpar localStorage
+    limparEstadoDeriva();
+    
+    // Resetar UI
+    document.getElementById('deriva-start').style.display = 'block';
+    document.getElementById('deriva-active').style.display = 'none';
+    document.getElementById('notas-deriva').value = '';
   }
 }
 
@@ -157,6 +299,7 @@ async function loadDerivas() {
             <div class="historico-meta">
               <span>${deriva.promptsSeguidos.length} prompts</span>
               ${deriva.duracao ? `<span>${deriva.duracao} min</span>` : ''}
+              ${deriva.distancia ? `<span>${deriva.distancia.toFixed(2)} km</span>` : ''}
               <span>Humor: ${'●'.repeat(deriva.humor)}${'○'.repeat(5 - deriva.humor)}</span>
             </div>
           </div>
@@ -305,6 +448,9 @@ async function iniciarDeriva() {
     derivaAtiva.localizacao_inicio = localizacaoInicio;
   }
   
+  // Guardar estado inicial
+  salvarEstadoDeriva();
+  
   // Mostrar interface de deriva ativa
   document.getElementById('deriva-start').style.display = 'none';
   document.getElementById('deriva-active').style.display = 'block';
@@ -351,6 +497,9 @@ function seguirPrompt(promptId) {
   currentPrompts = currentPrompts.map(p => p.id === promptId ? newPrompt : p);
   usedPromptIds.push(newPrompt.id);
   
+  // Guardar estado após mudança
+  salvarEstadoDeriva();
+  
   renderPrompts();
   updateDerivaInfo();
 }
@@ -393,6 +542,8 @@ function adicionarDescoberta() {
   if (text) {
     descobertas.push(text);
     input.value = '';
+    // Guardar estado após mudança
+    salvarEstadoDeriva();
     renderDescobertas();
   }
 }
@@ -435,6 +586,24 @@ async function finalizarDeriva() {
   // Capturar localização final
   const localizacaoFim = await capturarLocalizacaoAtual();
   
+  // Salvar último ponto do trajeto se existir
+  if (localizacaoAtual && derivaAtiva) {
+    await salvarPontoTrajeto(localizacaoAtual);
+  }
+  
+  // Calcular distância total percorrida
+  let distanciaTotal = 0;
+  if (pontosTrajeto.length > 1) {
+    for (let i = 1; i < pontosTrajeto.length; i++) {
+      distanciaTotal += calcularDistancia(
+        pontosTrajeto[i-1].lat,
+        pontosTrajeto[i-1].lng,
+        pontosTrajeto[i].lat,
+        pontosTrajeto[i].lng
+      );
+    }
+  }
+  
   const derivaFinal = {
     ...derivaAtiva,
     data_fim: endTime.toISOString(),
@@ -444,6 +613,7 @@ async function finalizarDeriva() {
     clima,
     local_inicio: localInicio,
     localizacao_fim: localizacaoFim,
+    distancia: distanciaTotal > 0 ? distanciaTotal : null,
     descobertas
   };
   
@@ -462,6 +632,9 @@ async function finalizarDeriva() {
       descobertas = [];
       humor = 3;
       clima = '';
+      
+      // Limpar estado do localStorage
+      limparEstadoDeriva();
       
       // Resetar UI
       document.getElementById('deriva-start').style.display = 'block';
@@ -505,6 +678,20 @@ async function showDetalhes(id) {
         <div class="detalhes-section">
           <span class="detalhes-label">Duração</span>
           <p class="detalhes-value">${deriva.duracao} minutos</p>
+        </div>
+      ` : ''}
+      
+      ${deriva.distancia ? `
+        <div class="detalhes-section">
+          <span class="detalhes-label">Distância Percorrida</span>
+          <p class="detalhes-value">${deriva.distancia.toFixed(2)} km</p>
+        </div>
+      ` : ''}
+      
+      ${deriva.trajeto && deriva.trajeto.length > 0 ? `
+        <div class="detalhes-section">
+          <span class="detalhes-label">Pontos do Trajeto</span>
+          <p class="detalhes-value">${deriva.trajeto.length} pontos registrados</p>
         </div>
       ` : ''}
       
@@ -582,6 +769,11 @@ async function showEditModal(id) {
         <div class="form-group">
           <label class="label">Duração (minutos)</label>
           <input type="number" id="edit-duracao" value="${deriva.duracao || ''}" class="input">
+        </div>
+        
+        <div class="form-group">
+          <label class="label">Distância percorrida (km)</label>
+          <input type="number" step="0.01" id="edit-distancia" value="${deriva.distancia || ''}" class="input">
         </div>
         
         <div class="form-group">
@@ -716,6 +908,7 @@ async function salvarEdicao(event, id) {
     local_inicio: document.getElementById('edit-local-inicio').value,
     local_fim: document.getElementById('edit-local-fim').value,
     duracao: parseInt(document.getElementById('edit-duracao').value) || null,
+    distancia: parseFloat(document.getElementById('edit-distancia').value) || null,
     humor: window.editHumor,
     clima: window.editClima,
     notas: document.getElementById('edit-notas').value,
@@ -857,7 +1050,22 @@ function formatDate(dateString) {
   });
 }
 
+// Calcular distância entre dois pontos (fórmula de Haversine) em km
+function calcularDistancia(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Raio da Terra em km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 // ============ GEOLOCALIZAÇÃO ============
+
+let pontosTrajeto = []; // Array para armazenar os pontos do trajeto durante a deriva
 
 function iniciarGeolocalizacao() {
   if (!navigator.geolocation) {
@@ -865,15 +1073,31 @@ function iniciarGeolocalizacao() {
     return;
   }
   
+  pontosTrajeto = []; // Resetar pontos do trajeto
+  
   watchId = navigator.geolocation.watchPosition(
-    (position) => {
+    async (position) => {
       localizacaoAtual = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         accuracy: position.coords.accuracy,
         timestamp: new Date().toISOString()
       };
-      console.log('Localização atualizada:', localizacaoAtual);
+      
+      // Adicionar ao array de pontos do trajeto
+      pontosTrajeto.push({
+        lat: localizacaoAtual.lat,
+        lng: localizacaoAtual.lng,
+        accuracy: localizacaoAtual.accuracy,
+        timestamp: localizacaoAtual.timestamp
+      });
+      
+      // Salvar ponto no servidor (a cada 30 segundos ou se for o primeiro ponto)
+      if (derivaAtiva && (pontosTrajeto.length === 1 || pontosTrajeto.length % 6 === 0)) {
+        await salvarPontoTrajeto(localizacaoAtual);
+      }
+      
+      console.log('Localização atualizada:', localizacaoAtual, 'Pontos:', pontosTrajeto.length);
     },
     (error) => {
       console.warn('Erro na geolocalização:', error.message);
@@ -884,6 +1108,29 @@ function iniciarGeolocalizacao() {
       maximumAge: 0
     }
   );
+}
+
+async function salvarPontoTrajeto(ponto) {
+  if (!derivaAtiva) return;
+  
+  try {
+    await fetch(`${API_URL}?ponto=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deriva_id: derivaAtiva.id,
+        latitude: ponto.lat,
+        longitude: ponto.lng,
+        accuracy: ponto.accuracy,
+        timestamp: ponto.timestamp
+      })
+    });
+    
+    // Guardar estado local após salvar ponto
+    salvarEstadoDeriva();
+  } catch (error) {
+    console.warn('Erro ao salvar ponto do trajeto:', error.message);
+  }
 }
 
 function pararGeolocalizacao() {
@@ -954,7 +1201,7 @@ async function carregarDerivasNoMapa() {
     const response = await fetch(API_URL);
     const derivas = await response.json();
     
-    // Limpar markers existentes
+    // Limpar markers e linhas existentes
     markers.forEach(marker => mapa.removeLayer(marker));
     markers = [];
     
@@ -964,11 +1211,46 @@ async function carregarDerivasNoMapa() {
       return;
     }
     
-    // Adicionar markers para cada deriva
+    // Adicionar markers e linhas para cada deriva
     const bounds = L.latLngBounds();
     let hasCoordinates = false;
     
     derivas.forEach(deriva => {
+      // Desenhar trajeto completo se existir
+      if (deriva.trajeto && deriva.trajeto.length > 1) {
+        const latlngs = deriva.trajeto.map(p => [p.lat, p.lng]);
+        
+        // Desenhar linha do trajeto
+        const polyline = L.polyline(latlngs, {
+          color: '#c084fc',
+          weight: 3,
+          opacity: 0.7,
+          dashArray: '5, 10'
+        }).addTo(mapa);
+        
+        // Popup na linha com informações
+        polyline.bindPopup(`
+          <div style="min-width: 200px;">
+            <strong style="color: #c084fc; font-size: 1rem;">${formatDate(deriva.data_inicio)}</strong><br>
+            ${deriva.local_inicio ? `<em style="color: #6b6b80;">${deriva.local_inicio}</em><br>` : ''}
+            ${deriva.clima ? `<span>${deriva.clima}</span><br>` : ''}
+            <span style="color: #6b6b80;">${deriva.promptsSeguidos.length} prompts</span><br>
+            ${deriva.duracao ? `<span style="color: #6b6b80;">${deriva.duracao} min</span><br>` : ''}
+            ${deriva.distancia ? `<span style="color: #6b6b80;">${deriva.distancia.toFixed(2)} km percorridos</span><br>` : ''}
+            <span>Humor: ${'●'.repeat(deriva.humor)}${'○'.repeat(5 - deriva.humor)}</span><br>
+            <br><span style="color: #6b6b80;">${deriva.trajeto.length} pontos registrados</span>
+          </div>
+        `);
+        
+        markers.push(polyline);
+        
+        // Adicionar todos os pontos ao bounds
+        latlngs.forEach(latlng => {
+          bounds.extend(latlng);
+          hasCoordinates = true;
+        });
+      }
+      
       // Se tem localização de início
       if (deriva.localizacao_inicio && deriva.localizacao_inicio.lat && deriva.localizacao_inicio.lng) {
         const marker = L.marker([
@@ -984,6 +1266,7 @@ async function carregarDerivasNoMapa() {
             ${deriva.clima ? `<span>${deriva.clima}</span><br>` : ''}
             <span style="color: #6b6b80;">${deriva.promptsSeguidos.length} prompts</span><br>
             ${deriva.duracao ? `<span style="color: #6b6b80;">${deriva.duracao} min</span><br>` : ''}
+            ${deriva.distancia ? `<span style="color: #6b6b80;">${deriva.distancia.toFixed(2)} km percorridos</span><br>` : ''}
             <span>Humor: ${'●'.repeat(deriva.humor)}${'○'.repeat(5 - deriva.humor)}</span><br>
             ${deriva.descobertas.length > 0 ? `<br><strong>Descobertas:</strong><br>${deriva.descobertas.slice(0, 3).map(d => `• ${d}`).join('<br>')}` : ''}
           </div>
