@@ -201,6 +201,22 @@ function getRandomPromptByCategory(category) {
   return filtered[Math.floor(Math.random() * filtered.length)];
 }
 
+function getRandomPromptsByCategory(count, category, excludeIds = []) {
+  const result = [];
+  const used = [...excludeIds];
+  const categoryPrompts = prompts.filter(p => p.category === category);
+  
+  for (let i = 0; i < count && i < categoryPrompts.length; i++) {
+    const available = categoryPrompts.filter(p => !used.includes(p.id));
+    if (available.length === 0) break;
+    
+    const prompt = available[Math.floor(Math.random() * available.length)];
+    result.push(prompt);
+    used.push(prompt.id);
+  }
+  return result;
+}
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
