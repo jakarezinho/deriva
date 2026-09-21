@@ -137,7 +137,7 @@ async function initApp() {
       
       // Restaurar UI
       renderPrompts();
-      renderDescobertas();
+      renderRegistos();
       updateDerivaInfo();
       
       // Reiniciar geolocalização
@@ -205,7 +205,16 @@ function abandonarDeriva() {
     derivaAtiva = null;
     currentPrompts = [];
     usedPromptIds = [];
-    descobertas = [];
+    registos = {
+      descobertas: [],
+      pensamentos: [],
+      encontros: [],
+      frases: [],
+      objetos: [],
+      atmosfera: [],
+      desejos: [],
+      acasos: []
+    };
     humor = 3;
     clima = '';
     pontosTrajeto = [];
@@ -550,7 +559,7 @@ function renderPrompts() {
           ${isAtivo ? `<p class="prompt-timer">⏱️ Em execução há ${getTempoDecorrido(promptAtivoInicio)}</p>` : ''}
           <div class="prompt-meta">
             <span class="prompt-category">${cat ? cat.label : ''}</span>
-            <button class="prompt-action" onclick="seguirPrompt(${prompt.id})">
+            <button class="prompt-action" onclick="${isAtivo ? `concluirPrompt(${prompt.id})` : `ativarPrompt(${prompt.id})`}">
               ${isAtivo ? '✓ Concluído' : 'Segui este →'}
             </button>
           </div>
@@ -569,30 +578,50 @@ function getTempoDecorrido(timestamp) {
   return `${horas}h ${minutos % 60}min`;
 }
 
-function seguirPrompt(promptId) {
+let timerInterval = null;
+
+function ativarPrompt(promptId) {
   const prompt = currentPrompts.find(p => p.id === promptId);
   if (!prompt || !derivaAtiva) return;
   
-  // Se já existe um prompt ativo, marcar como concluído
-  if (promptAtivo) {
-    const promptAnterior = derivaAtiva.promptsSeguidos.find(p => p.promptId === promptAtivo.id);
-    if (promptAnterior) {
-      promptAnterior.fimTimestamp = new Date().toISOString();
-      promptAnterior.duracao = Math.round((Date.now() - new Date(promptAnterior.timestamp).getTime()) / 60000);
-    }
-  }
+  // Marcar como prompt ativo
+  promptAtivo = prompt;
+  promptAtivoInicio = Date.now();
+  
+  // Iniciar intervalo para actualizar o timer
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    renderPrompts();
+  }, 1000);
+  
+  // Guardar estado após mudança
+  salvarEstadoDeriva();
+  
+  renderPrompts();
+  renderDiario();
+}
+
+function concluirPrompt(promptId) {
+  const prompt = currentPrompts.find(p => p.id === promptId);
+  if (!prompt || !derivaAtiva) return;
   
   // Adicionar aos prompts seguidos
   derivaAtiva.promptsSeguidos.push({
     promptId: prompt.id,
     promptText: prompt.text,
     timestamp: new Date().toISOString(),
+    fimTimestamp: new Date().toISOString(),
+    duracao: Math.round((Date.now() - promptAtivoInicio) / 60000),
     categoria: prompt.category
   });
   
-  // Marcar como prompt ativo
-  promptAtivo = prompt;
-  promptAtivoInicio = Date.now();
+  // Limpar prompt ativo e parar o timer
+  promptAtivo = null;
+  promptAtivoInicio = null;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
   
   // Substituir por novo prompt
   const newPrompt = selectedCategory
@@ -641,25 +670,9 @@ function toggleAllPrompts() {
   }
 }
 
-function adicionarDescoberta() {
-  const input = document.getElementById('nova-descoberta');
-  const text = input.value.trim();
-  
-  if (text) {
-    descobertas.push(text);
-    input.value = '';
-    // Guardar estado após mudança
-    salvarEstadoDeriva();
-    renderDescobertas();
-  }
-}
+// Função adicionarDescoberta removida - agora usa adicionarRegisto('descobertas')
 
-function renderDescobertas() {
-  const container = document.getElementById('descobertas-list');
-  container.innerHTML = descobertas.map(d => `
-    <span class="descoberta-tag">${d}</span>
-  `).join('');
-}
+// Função renderDescobertas removida - agora usa renderRegistos()
 
 function updateDerivaInfo() {
   const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
@@ -736,7 +749,16 @@ async function finalizarDeriva() {
       derivaAtiva = null;
       currentPrompts = [];
       usedPromptIds = [];
-      descobertas = [];
+      registos = {
+        descobertas: [],
+        pensamentos: [],
+        encontros: [],
+        frases: [],
+        objetos: [],
+        atmosfera: [],
+        desejos: [],
+        acasos: []
+      };
       humor = 3;
       clima = '';
       
@@ -818,12 +840,12 @@ async function showDetalhes(id) {
         </div>
       ` : ''}
       
-      ${deriva.descobertas.length > 0 ? `
+      ${deriva.registos?.descobertas?.length > 0 ? `
         <div class="detalhes-section">
           <span class="detalhes-label">Descobertas</span>
           <div class="detalhes-descobertas">
-            ${deriva.descobertas.map(d => `
-              <span class="detalhes-descoberta">${d}</span>
+            ${deriva.registos.descobertas.map(d => `
+              <span class="detalhes-descoberta">${d.texto || d}</span>
             `).join('')}
           </div>
         </div>
@@ -907,15 +929,15 @@ async function showEditModal(id) {
         </div>
         
         <div class="form-group">
-          <label class="label">Descobertas (${deriva.descobertas.length})</label>
+          <label class="label">Descobertas (${deriva.registos?.descobertas?.length || 0})</label>
           <div class="descobertas-input">
             <input type="text" id="edit-nova-descoberta" placeholder="Adicionar descoberta" class="input">
             <button type="button" class="btn-accent" onclick="addEditDescoberta()">+</button>
           </div>
           <div class="edit-descobertas" id="edit-descobertas-list">
-            ${deriva.descobertas.map((d, i) => `
+            ${(deriva.registos?.descobertas || []).map((d, i) => `
               <div class="edit-descoberta">
-                <span>${d}</span>
+                <span>${d.texto || d}</span>
                 <button type="button" onclick="removeEditDescoberta(${i})">×</button>
               </div>
             `).join('')}
@@ -947,7 +969,7 @@ async function showEditModal(id) {
     window.editDeriva = deriva;
     window.editHumor = deriva.humor;
     window.editClima = deriva.clima;
-    window.editDescobertas = [...deriva.descobertas];
+    window.editDescobertas = [...(deriva.registos?.descobertas || [])];
     window.editPrompts = [...deriva.promptsSeguidos];
     
     document.getElementById('modal-edit').style.display = 'flex';
@@ -1220,7 +1242,30 @@ function showTab(tabName) {
 }
 
 function adicionarRegisto(tipo) {
-  const input = document.getElementById(`novo-${tipo.slice(0, -1)}`);
+  // Mapeamento correcto dos IDs dos inputs
+  const inputMap = {
+    descobertas: 'nova-descoberta',
+    pensamentos: 'novo-pensamento',
+    encontros: 'novo-encontro',
+    frases: 'nova-frase',
+    objetos: 'novo-objeto',
+    atmosfera: 'nova-atmosfera',
+    desejos: 'novo-desejo',
+    acasos: 'novo-acaso'
+  };
+  
+  const inputId = inputMap[tipo];
+  if (!inputId) {
+    console.error('Tipo de registo inválido:', tipo);
+    return;
+  }
+  
+  const input = document.getElementById(inputId);
+  if (!input) {
+    console.error('Input não encontrado:', inputId);
+    return;
+  }
+  
   const texto = input.value.trim();
   
   if (texto) {
@@ -1558,7 +1603,7 @@ async function carregarDerivasNoMapa() {
             ${deriva.duracao ? `<span style="color: #6b6b80;">${deriva.duracao} min</span><br>` : ''}
             ${deriva.distancia ? `<span style="color: #6b6b80;">${deriva.distancia.toFixed(2)} km percorridos</span><br>` : ''}
             <span>Humor: ${'●'.repeat(deriva.humor)}${'○'.repeat(5 - deriva.humor)}</span><br>
-            ${deriva.descobertas.length > 0 ? `<br><strong>Descobertas:</strong><br>${deriva.descobertas.slice(0, 3).map(d => `• ${d}`).join('<br>')}` : ''}
+            ${deriva.registos?.descobertas?.length > 0 ? `<br><strong>Descobertas:</strong><br>${deriva.registos.descobertas.slice(0, 3).map(d => `• ${d.texto || d}`).join('<br>')}` : ''}
           </div>
         `;
         
