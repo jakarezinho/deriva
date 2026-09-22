@@ -504,7 +504,9 @@ async function iniciarDeriva() {
   };
   
   startTime = derivaAtiva.data_inicio;
-  currentPrompts = getRandomPrompts(5);
+  currentPrompts = selectedCategory 
+    ? getRandomPromptsByCategory(5, selectedCategory)
+    : getRandomPrompts(5);
   usedPromptIds = currentPrompts.map(p => p.id);
   
   // Resetar registos
@@ -560,7 +562,7 @@ function renderPrompts() {
           <div class="prompt-meta">
             <span class="prompt-category">${cat ? cat.label : ''}</span>
             <button class="prompt-action" onclick="${isAtivo ? `concluirPrompt(${prompt.id})` : `ativarPrompt(${prompt.id})`}">
-              ${isAtivo ? '✓ Concluído' : 'Segui este →'}
+              ${isAtivo ? '✓ Concluído' : 'Seguir este →'}
             </button>
           </div>
         </div>
@@ -588,17 +590,39 @@ function ativarPrompt(promptId) {
   promptAtivo = prompt;
   promptAtivoInicio = Date.now();
   
-  // Iniciar intervalo para actualizar o timer
+  // Renderizar uma vez para mostrar o estado ativo
+  renderPrompts();
+  
+  // Iniciar intervalo para atualizar APENAS o timer (evita pulsação)
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
-    renderPrompts();
+    atualizarTimerPromptAtivo();
   }, 1000);
   
   // Guardar estado após mudança
   salvarEstadoDeriva();
   
-  renderPrompts();
   renderDiario();
+}
+
+// Nova função - atualiza apenas o timer sem re-renderizar tudo
+function atualizarTimerPromptAtivo() {
+  if (!promptAtivo || !promptAtivoInicio) return;
+  
+  // Atualizar timer no prompt ativo
+  const timerElement = document.querySelector('.prompt-card.ativo .prompt-timer');
+  if (timerElement) {
+    timerElement.textContent = `⏱️ Em execução há ${getTempoDecorrido(promptAtivoInicio)}`;
+  }
+  
+  // Atualizar timer no diário se estiver aberto
+  const diarioAberto = document.getElementById('diario-bordo');
+  if (diarioAberto && diarioAberto.style.display !== 'none') {
+    const diarioTimerElement = document.querySelector('.diario-item.atual .diario-meta');
+    if (diarioTimerElement) {
+      diarioTimerElement.textContent = `⏱️ Em execução há ${getTempoDecorrido(promptAtivoInicio)}`;
+    }
+  }
 }
 
 function concluirPrompt(promptId) {
@@ -659,7 +683,7 @@ function toggleAllPrompts() {
     listContainer.innerHTML = prompts.map(p => {
       const cat = categories.find(c => c.id === p.category);
       return `
-        <button class="all-prompt-item" onclick="seguirPrompt(${p.id})">
+        <button class="all-prompt-item" onclick="ativarPrompt(${p.id})">
           ${cat ? cat.icon : '◉'} ${p.text}
         </button>
       `;
