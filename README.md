@@ -1,191 +1,317 @@
-# 🚀 Deriva Urbana - Com Mapa e Edição
+# 🚶 Deriva Urbana - Aplicação Web Situacionista
 
-## ✅ Projeto 100% Standalone
-
-**Sem Node.js, sem npm, sem build!**
-
-Apenas HTML, CSS, JavaScript puro + PHP com SQLite.
-
-### 🎯 Funcionalidades Principais
-
-✅ **150 prompts situacionistas** em 7 categorias  
-✅ **Mapa interativo** com Leaflet mostrando todas as derivas  
-✅ **Geolocalização automática** durante as derivas  
-✅ **Editar derivas** completas (local, humor, notas, etc)  
-✅ **Eliminar derivas** individualmente ou em massa  
-✅ **SQLite no servidor** - dados acessíveis de qualquer dispositivo  
-✅ **Export/Import** - backup em JSON  
-✅ **Design responsivo** - funciona em desktop e mobile  
-✅ **Sem dependências** - funciona direto no navegador
+## Aplicação web para prática de deriva urbana baseada na teoria de Guy Debord
 
 ---
 
-## 📦 O que você tem
+## ⚡ Início Rápido (5 minutos)
+
+### 1. Deploy no InfinityFree (ou qualquer hosting PHP)
+
+```bash
+# Copiar pasta public/ para o servidor
+# Criar pasta data/ com permissão 755
+# Aceder: http://teusite.com
+```
+
+**✅ Pronto! Sem Node.js, sem build, sem complicações.**
+
+---
+
+## 🎯 O Que É Isto?
+
+Uma aplicação web **100% standalone** para praticar **deriva urbana** - uma técnica situacionista de exploração da cidade sem destino fixo, baseada na teoria de Guy Debord (1956).
+
+### Características Principais
+
+- ✅ **150 prompts situacionistas** em 7 categorias
+- ✅ **Mapa interativo** com rastreamento GPS
+- ✅ **Diário de bordo** cronológico
+- ✅ **8 tipos de registos** (descobertas, pensamentos, encontros, etc.)
+- ✅ **Persistência dual** (localStorage + SQLite no servidor)
+- ✅ **Design responsivo** e tema escuro
+- ✅ **Zero dependências** (apenas Leaflet via CDN)
+
+---
+
+## 📁 Estrutura do Projeto
 
 ```
-public/
-├── index.html          ← Página principal
-├── style.css           ← Estilos
-├── prompts.js          ← 150 prompts situacionistas
-├── app.js              ← Lógica da aplicação
+public/                      ← 🚀 FICHEIROS PARA DEPLOY
+├── index.html               ← Frontend (HTML5 puro)
+├── style.css                ← Estilos (CSS3 puro)
+├── app.js                   ← Lógica (JavaScript ES6+)
+├── prompts.js               ← 150 prompts situacionistas
+├── check.php                ← Verificação do ambiente
 ├── api/
-│   ├── config.php      ← Configuração do banco
-│   ├── derivas.php     ← API REST
-│   └── .htaccess       ← Segurança
-├── data/
-│   └── .htaccess       ← Protege o banco
-└── check.php           ← Verificação do ambiente
+│   ├── config.php           ← Configuração SQLite
+│   └── derivas.php          ← API REST completa
+└── data/
+    └── derivas.db           ← Base de dados (auto-criado)
 ```
+
+**Total:** ~125 KB | **Ficheiros:** 9 | **Build necessário:** ❌ NÃO
 
 ---
 
-## 🔧 Como instalar no InfinityFree
+## 🚀 Como Usar
 
-### Passo 1: Criar conta
-1. Acesse https://www.infinityfree.net
-2. Crie uma conta gratuita
-3. Crie um hosting account (ex: `minhaderiva.infinityfreeapp.com`)
-
-### Passo 2: Upload dos arquivos
-
-**Via File Manager (mais fácil):**
-1. No painel, vá em "Control Panel" → "File Manager"
-2. Navegue até `htdocs/`
-3. Faça upload de **TODA a pasta `public/`**:
-   - `index.html`
-   - `style.css`
-   - `prompts.js`
-   - `app.js`
-   - Pasta `api/` (com todos os arquivos)
-   - Pasta `data/` (crie vazia)
-   - `check.php`
-
-**Via FTP (FileZilla):**
-- Host: `ftpupload.net` (ou o indicado no painel)
-- User: `epiz_XXXXXXX`
-- Password: (a que você definiu)
-- Pasta: `/htdocs/`
-
-### Passo 3: Configurar permissões
-1. No File Manager, clique com botão direito na pasta `data/`
-2. Selecione "Permissions" ou "Chmod"
-3. Defina como **755** ou **775**
-
-### Passo 4: Verificar instalação
-Acesse no navegador:
-```
-http://seusite.infinityfreeapp.com/check.php
+### Método 1: Abrir Localmente (Teste)
+```bash
+cd public/
+# Abrir index.html no browser
 ```
 
-Deve mostrar tudo ✓ verde.
-
-### Passo 5: Usar a aplicação
+### Método 2: Servidor Local (Teste Completo)
+```bash
+cd public/
+php -S localhost:8000
+# Aceder: http://localhost:8000
 ```
-http://seusite.infinityfreeapp.com
+
+### Método 3: Servidor Remoto (Produção)
+```bash
+# Via FTP: Copiar pasta public/ para /htdocs/
+# Criar pasta data/ com permissão 755
+# Aceder: http://teusite.com
 ```
 
-Pronto! 🎉
+**Guia completo:** [DEPLOY_SEM_BUILD.md](DEPLOY_SEM_BUILD.md)
 
 ---
 
-## ✨ Funcionalidades
+## 🎨 Funcionalidades
 
-✅ **150 prompts situacionistas** em 7 categorias  
-✅ **SQLite no servidor** - dados acessíveis de qualquer dispositivo  
-✅ **CRUD completo** - criar, ler, editar, excluir derivas  
-✅ **Export/Import** - backup em JSON  
-✅ **Design responsivo** - funciona em desktop e mobile  
-✅ **Sem dependências** - HTML/CSS/JS puro  
+### Gestão de Derivas
+- ✅ Iniciar, pausar, continuar, finalizar
+- ✅ Editar e eliminar derivas
+- ✅ Persistência automática
+- ✅ Export/Import JSON
+
+### Sistema de Prompts
+- ✅ 150 prompts em 7 categorias
+- ✅ Filtro por categoria
+- ✅ Prompt ativo destacado
+- ✅ Timer em tempo real
+- ✅ Diário de bordo
+
+### Registos da Deriva
+- 🔍 Descobertas
+- 💭 Pensamentos errantes
+- 🎭 Encontros
+- 🗣️ Frases ouvidas
+- 🎁 Objetos encontrados
+- 🌡️ Atmosfera do lugar
+- 💫 Desejos despertados
+- 🎲 Acasos significativos
+
+### Geolocalização
+- ✅ Rastreamento GPS contínuo
+- ✅ Mapa Leaflet interativo
+- ✅ Visualização do trajeto
+- ✅ Cálculo de distância
 
 ---
 
-## 📊 Estrutura do banco de dados
+## 📚 Documentação
 
-O SQLite armazena:
-- **derivas** - sessões de deriva
-- **prompts_seguidos** - prompts utilizados em cada deriva
-- **descobertas** - achados durante a deriva
-- **config** - configurações do usuário
+### Guias Principais
+- **[GUIA_RAPIDO.md](GUIA_RAPIDO.md)** - Início rápido
+- **[DEPLOY_SEM_BUILD.md](DEPLOY_SEM_BUILD.md)** - Deploy sem build
+- **[CONFIRMACAO_STANDALONE.md](CONFIRMACAO_STANDALONE.md)** - Confirmação standalone
+
+### Técnicos
+- **[ESTRUTURA_FINAL.md](ESTRUTURA_FINAL.md)** - Estrutura completa
+- **[RELATORIO_TECNICO.md](RELATORIO_TECNICO.md)** - Arquitetura e lógica
+- **[RELATORIO_FUNCIONALIDADES.md](RELATORIO_FUNCIONALIDADES.md)** - Funções implementadas
+
+### Funcionalidades
+- **[RASTREAMENTO_TRAJETO.md](RASTREAMENTO_TRAJETO.md)** - GPS e mapa
+- **[PERSISTENCIA_DERIVA.md](PERSISTENCIA_DERIVA.md)** - localStorage
+- **[MELHORIAS_IMPLEMENTADAS.md](MELHORIAS_IMPLEMENTADAS.md)** - Melhorias
+
+### Resolução de Problemas
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Problemas comuns
+- **[RELATORIO_ERROS_CORRECOES.md](RELATORIO_ERROS_CORRECOES.md)** - Bugs corrigidos
+
+---
+
+## 🔧 Tecnologias
+
+| Tecnologia | Tipo | Necessita Build? |
+|------------|------|------------------|
+| HTML5 | Markup | ❌ Não |
+| CSS3 | Styles | ❌ Não |
+| JavaScript ES6+ | Script | ❌ Não |
+| PHP 7.4+ | Server-side | ❌ Não |
+| SQLite3 | Database | ❌ Não |
+| Leaflet 1.9.4 | Maps (CDN) | ❌ Não |
+
+**Dependências:** ZERO (apenas Leaflet via CDN)  
+**Build:** NÃO necessário  
+**Node.js:** NÃO necessário
+
+---
+
+## 📊 Estatísticas
+
+- **Ficheiros:** 9
+- **Tamanho total:** ~125 KB
+- **Linhas de código:** ~3000
+- **Prompts:** 150
+- **Categorias:** 7
+- **Funcionalidades:** 25+
+- **Tempo de deploy:** 5 minutos
+
+---
+
+## ✅ Requisitos
+
+### Servidor
+- ✅ PHP 7.4+ (recomendado 8.0+)
+- ✅ Extensão SQLite3
+- ✅ Permissão de escrita na pasta `data/`
+- ✅ 10 MB de espaço
+
+### Browser
+- ✅ Chrome 90+
+- ✅ Firefox 88+
+- ✅ Safari 14+
+- ✅ Edge 90+
+
+### Hosting
+- ✅ InfinityFree (gratuito)
+- ✅ Qualquer hosting com PHP
+- ✅ Servidor local (XAMPP, WAMP, MAMP)
+
+---
+
+## 🎯 Casos de Uso
+
+### Pessoal
+- Derivas urbanas individuais
+- Registo de experiências
+- Mapeamento de trajetos
+- Diário psicogeográfico
+
+### Educacional
+- Ensino de psicogeografia
+- Estudos urbanos
+- Workshops de deriva
+- Projetos artísticos
+
+### Comunitário
+- Grupos de deriva
+- Exploração urbana
+- Mapeamento colaborativo
 
 ---
 
 ## 🔐 Segurança
 
-- `.htaccess` bloqueia acesso direto ao banco SQLite
-- `.htaccess` protege arquivos de configuração
-- Validação de dados na API
-- CORS configurado corretamente
+- ✅ .htaccess protege base de dados
+- ✅ CORS configurado
+- ✅ Validação de inputs
+- ✅ Prepared statements (SQL injection)
+- ✅ HTTPS recomendado (para GPS)
 
 ---
 
-## 💾 Backup
+## 🐛 Troubleshooting
 
-### Via interface
-Use o botão "Exportar" no Histórico → salva JSON com tudo.
+### Problema: Funções não aparecem
+**Solução:** Limpar cache do browser + Hard refresh (Ctrl+F5)
 
-### Via FTP
-Baixe periodicamente o arquivo `data/derivas.db`.
+### Problema: API não conecta
+**Solução:** Verificar `check.php` e permissões da pasta `data/`
+
+### Problema: Mapa não carrega
+**Solução:** Verificar conexão internet (Leaflet via CDN)
+
+**Guia completo:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ---
 
-## 🆘 Problemas comuns
+## 📖 Conceito Situacionista
 
-### "Erro ao conectar à API"
-- Verifique se os arquivos PHP foram enviados
-- Confirme que a pasta `data/` tem permissão 755
-- Acesse `check.php` para diagnóstico
+### Base Teórica
+- **Guy Debord** - Théorie de la Dérive (1956)
+- **Psicogeografia** - Estudo da influência do ambiente nas emoções
+- **Détournement** - Reapropriação de elementos culturais
 
-### "Banco não inicializado"
-- Verifique permissões da pasta `data/`
-- Confirme que o PHP tem SQLite habilitado (padrão no InfinityFree)
+### Aplicação
+Os 150 prompts funcionam como **"situações construídas"** - dispositivos que quebram a rotina perceptiva e abrem novas possibilidades de experiência na cidade.
 
-### Dados não salvam
-- Abra o console do navegador (F12)
-- Verifique erros na aba Network
-- Confirme que `/api/derivas.php` responde
+---
+
+## 🔄 Manutenção
+
+### Atualizar Frontend
+```bash
+# 1. Editar ficheiro localmente
+nano public/app.js
+
+# 2. Enviar para servidor via FTP
+# 3. Refresh no browser (Ctrl+F5)
+# Pronto! Sem build necessário
+```
+
+### Backup
+```bash
+# Via FTP: Descer todos os ficheiros
+# Via Interface: Botão "Exportar" no Histórico
+# Via SQLite: Copiar data/derivas.db
+```
 
 ---
 
 ## 📞 Suporte
 
-Se precisar de ajuda:
-1. Acesse `check.php` e copie o resultado
-2. Abra o console do navegador (F12) e copie os erros
-3. Verifique a aba Network para ver as requisições à API
+1. **Verificar check.php** - `http://teusite.com/check.php`
+2. **Verificar Console** - F12 → Console
+3. **Verificar Network** - F12 → Network
+4. **Consultar documentação** - Pasta DOCUMENTACAO/
 
 ---
 
-## 🎨 Personalização
+## 🎉 Resumo
 
-### Mudar cores
-Edite o arquivo `style.css` - as cores principais estão no topo.
+**Deriva Urbana** é uma aplicação web completa e funcional, desenvolvida com tecnologias standard da web, totalmente standalone, sem necessidade de build ou dependências complexas.
 
-### Adicionar prompts
-Edite o arquivo `prompts.js` - adicione mais objetos ao array `prompts`.
+**Pronto para:**
+- ✅ Deploy imediato (5 minutos)
+- ✅ Uso pessoal
+- ✅ Modificação fácil
+- ✅ Manutenção simples
 
-### Mudar textos
-Edite o arquivo `index.html` - todos os textos estão lá.
-
----
-
-## 📝 Notas técnicas
-
-- **Frontend**: HTML5 + CSS3 + JavaScript vanilla (ES6+)
-- **Backend**: PHP 7.4+ com SQLite3
-- **Banco**: SQLite (arquivo `data/derivas.db`)
-- **API**: RESTful com endpoints para CRUD completo
-- **Compatibilidade**: Funciona em todos os navegadores modernos
+**Tempo de desenvolvimento:** ~10 horas  
+**Linhas de código:** ~3000  
+**Dependências:** 0  
+**Build necessário:** ❌ NÃO
 
 ---
 
-## 🎯 Conceito
+## 📄 Licença
 
-Inspirado em "Théorie de la Dérive" de Guy Debord (1956):
+Este projeto é de uso pessoal e educacional.
 
-> "A deriva é um modo de comportamento experimental ligado às condições da sociedade urbana: técnica do trânsito passageiro em uma ambiência variável."
-
-Os prompts funcionam como **situações construídas** - dispositivos que quebram a rotina perceptiva e abrem novas possibilidades de experiência na cidade.
+**Inspirado em:** Guy Debord - Théorie de la Dérive (1956)
 
 ---
 
-**Boa deriva! ◉**
+**Criado:** 2026-01-15  
+**Versão:** 1.0  
+**Status:** ✅ Completo e Funcional
+
+---
+
+## 🚀 Começar Agora
+
+```bash
+# 1. Copiar pasta public/ para o servidor
+# 2. Criar pasta data/ com permissão 755
+# 3. Aceder: http://teusite.com
+# 4. Começar a derivar! ◉
+```
+
+**Boa deriva!** 🚶‍♂️🗺️
