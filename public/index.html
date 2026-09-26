@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deriva — Caminhar sem Rumo</title>
+    <title>Deriva — Diário de Descobertas Urbanas</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -19,17 +19,8 @@
                 <button class="nav-btn active" data-page="home" onclick="showPage('home')">
                     <span>◈</span> <span class="nav-label">Início</span>
                 </button>
-                <button class="nav-btn" data-page="deriva" onclick="showPage('deriva')">
-                    <span>⟐</span> <span class="nav-label">Derivar</span>
-                </button>
-                <button class="nav-btn" data-page="mapa" onclick="showPage('mapa')">
-                    <span>🗺️</span> <span class="nav-label">Mapa</span>
-                </button>
-                <button class="nav-btn" data-page="historico" onclick="showPage('historico')">
-                    <span>▤</span> <span class="nav-label">Histórico</span>
-                </button>
-                <button class="nav-btn" data-page="config" onclick="showPage('config')">
-                    <span>⚙</span> <span class="nav-label">Config</span>
+                <button class="nav-btn" data-page="arquivo" onclick="showPage('arquivo')">
+                    <span>📁</span> <span class="nav-label">Arquivo</span>
                 </button>
             </div>
         </div>
@@ -37,335 +28,155 @@
 
     <!-- Main Content -->
     <main class="main">
-        <!-- HOME PAGE -->
+        <!-- HOME PAGE - Deriva Ativa -->
         <div id="page-home" class="page active">
             <div class="container">
-                <div class="hero">
-                    <div class="hero-icon">◉</div>
-                    <h1 class="hero-title">Teoria da Deriva</h1>
-                    <p class="hero-text">
-                        "A deriva é um modo de comportamento experimental ligado às condições da sociedade urbana: 
-                        técnica do trânsito passageiro em uma ambiência variável."
-                    </p>
-                    <p class="hero-author">— Guy Debord, 1956</p>
-                </div>
-
-                <div class="card glow">
-                    <h2>O que é a Deriva?</h2>
-                    <p>A <strong>deriva urbana</strong> é uma prática de exploração sem destino fixo, onde o caminhante se deixa levar pela psicogeografia do ambiente — os atrativos do terreno, as correntes invisíveis da cidade, os encontros inesperados.</p>
-                    <p>Diferente do passeio ou da caminhada com propósito, a deriva abandona as razões habituais de deslocamento e se entrega ao <em>arrastamento</em> pelo espaço urbano.</p>
-                    <p>Os <strong>prompts</strong> desta aplicação funcionam como <em>situações construídas</em> — dispositivos que quebram a rotina perceptiva e abrem novas possibilidades de experiência na cidade.</p>
-                </div>
-
-                <div class="card">
-                    <h2>Modos de Deriva</h2>
-                    <div class="categories-grid" id="categories-grid"></div>
-                </div>
-
-                <div id="stats-home" class="card" style="display: none;">
-                    <h2>Suas Derivas</h2>
-                    <div class="stats-grid" id="stats-grid-home"></div>
-                </div>
-
-                <div class="cta">
-                    <button class="btn-primary btn-large" onclick="showPage('deriva')">
-                        Iniciar Deriva →
-                    </button>
-                    <p class="cta-text" id="cta-text">A cidade espera.</p>
-                </div>
-
-                <div class="manifesto">
-                    <p>"Nada de novo na arte ou na poesia pode ser verdadeiramente buscado sem uma exploração prática dos possíveis caminhos da vida." — Situacionismo</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- DERIVA PAGE -->
-        <div id="page-deriva" class="page">
-            <div class="container">
-                <div id="deriva-start">
-                    <div class="hero">
-                        <div class="hero-icon">⟐</div>
-                        <h1 class="hero-title">Iniciar Deriva</h1>
-                        <p class="hero-text">Abandone o propósito. Entregue-se ao arrastamento.</p>
+                <!-- Header da Deriva -->
+                <div id="deriva-header" class="deriva-header">
+                    <div class="deriva-info">
+                        <h1 id="deriva-titulo" class="deriva-titulo">Carregando...</h1>
+                        <p id="deriva-data" class="deriva-data"></p>
                     </div>
-
-                    <div class="card">
-                        <label class="label">Onde você está? (opcional)</label>
-                        <input type="text" id="local-inicio" placeholder="Ex: Praça da Sé, São Paulo" class="input">
+                    <div class="deriva-actions">
+                        <button class="btn-secondary" onclick="editarTitulo()" title="Editar título">✏️</button>
+                        <button class="btn-warning" onclick="arquivarDeriva()" title="Arquivar deriva">📁 Arquivar</button>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <label class="label">Filtrar por categoria (opcional)</label>
-                        <div class="filter-buttons" id="filter-buttons"></div>
-                    </div>
+                <!-- Estado vazio (sem deriva ativa) -->
+                <div id="sem-deriva" class="empty-state" style="display: none;">
+                    <div class="empty-icon">◉</div>
+                    <h2>Nenhuma deriva ativa</h2>
+                    <p>Comece uma nova deriva para registar as suas descobertas urbanas.</p>
+                    <button class="btn-primary" onclick="criarNovaDeriva()">+ Nova Deriva</button>
+                </div>
 
-                    <div class="cta">
-                        <button class="btn-primary btn-large" onclick="iniciarDeriva()">
-                            Começar a Derivar ◉
+                <!-- Conteúdo da Deriva Ativa -->
+                <div id="deriva-content" style="display: none;">
+                    <!-- Barra de Ações -->
+                    <div class="action-bar">
+                        <button class="btn-action" onclick="localizarMe()">
+                            <span class="btn-icon">📍</span>
+                            <span>Localizar-me</span>
+                        </button>
+                        <button class="btn-action" onclick="abrirCamera()">
+                            <span class="btn-icon">📷</span>
+                            <span>Tirar Foto</span>
+                        </button>
+                        <button class="btn-action" onclick="adicionarDescoberta()">
+                            <span class="btn-icon">✍️</span>
+                            <span>Notas</span>
                         </button>
                     </div>
 
-                    <div class="card">
-                        <h3>Princípios da Deriva (Debord)</h3>
-                        <ul class="principles">
-                            <li>A deriva se pratica em grupos de 2-3 pessoas que se influenciam mutuamente</li>
-                            <li>A duração média é de um dia inteiro</li>
-                            <li>O derivante abandona as razões de se deslocar (trabalho, lazer)</li>
-                            <li>As psicogeografia revelam linhas de força da cidade</li>
-                            <li>Cada deriva é única e irrepetível</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div id="deriva-active" style="display: none;">
-                    <div class="deriva-header">
-                        <div>
-                            <h1 class="deriva-title">Deriva em Curso</h1>
-                            <p class="deriva-info" id="deriva-info">0 prompts seguidos</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button class="btn-secondary" onclick="toggleDiario()" title="Ver diário de bordo">📜</button>
-                            <button class="btn-warning" onclick="pausarDeriva()" title="Pausar deriva">⏸️</button>
-                            <button class="btn-danger" onclick="abandonarDeriva()" title="Abandonar deriva">✕</button>
-                            <button class="btn-success" onclick="showFinishModal()">Finalizar ✓</button>
-                        </div>
+                    <!-- Localização Atual -->
+                    <div id="localizacao-info" class="localizacao-info" style="display: none;">
+                        <span class="loc-icon">📍</span>
+                        <span id="coord-text">A obter localização...</span>
                     </div>
 
-                    <!-- Diário de Bordo -->
-                    <div id="diario-bordo" class="card" style="display: none;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <h3>📜 Diário de Bordo</h3>
-                            <button class="btn-secondary" onclick="toggleDiario()" style="padding: 0.25rem 0.5rem;">✕</button>
-                        </div>
-                        <div id="diario-list" class="diario-list"></div>
+                    <!-- Mapa -->
+                    <div class="mapa-container">
+                        <div id="mapa" class="mapa"></div>
                     </div>
 
-                    <div id="prompts-container" class="prompts-list"></div>
-
-                    <div class="action-buttons">
-                        <button class="btn-secondary" onclick="adicionarPrompt()">+ Novo Prompt Aleatório</button>
-                        <button class="btn-secondary" onclick="toggleAllPrompts()">▤</button>
-                    </div>
-
-                    <div id="all-prompts" class="card" style="display: none;">
-                        <h3>Todos os Prompts</h3>
-                        <div id="all-prompts-list" class="all-prompts-list"></div>
-                    </div>
-
-                    <!-- Registos da Deriva com Tabs -->
-                    <div class="card">
-                        <div class="tabs">
-                            <button class="tab-btn active" onclick="showTab('descobertas')">🔍 Descobertas</button>
-                            <button class="tab-btn" onclick="showTab('pensamentos')">💭 Pensamentos</button>
-                            <button class="tab-btn" onclick="showTab('encontros')">🎭 Encontros</button>
-                            <button class="tab-btn" onclick="showTab('frases')">🗣️ Frases</button>
-                            <button class="tab-btn" onclick="showTab('objetos')">🎁 Objetos</button>
-                            <button class="tab-btn" onclick="showTab('atmosfera')">🌡️ Atmosfera</button>
-                            <button class="tab-btn" onclick="showTab('desejos')">💫 Desejos</button>
-                            <button class="tab-btn" onclick="showTab('acasos')">🎲 Acasos</button>
-                        </div>
-
-                        <div id="tab-descobertas" class="tab-content active">
-                            <div class="tab-input">
-                                <input type="text" id="nova-descoberta" placeholder="O que você encontrou?" class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('descobertas')">+</button>
-                            </div>
-                            <div id="descobertas-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-pensamentos" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="novo-pensamento" placeholder="Pensamento errante..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('pensamentos')">+</button>
-                            </div>
-                            <div id="pensamentos-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-encontros" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="novo-encontro" placeholder="Pessoa, animal, situação..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('encontros')">+</button>
-                            </div>
-                            <div id="encontros-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-frases" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="nova-frase" placeholder="Frase ouvida..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('frases')">+</button>
-                            </div>
-                            <div id="frases-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-objetos" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="novo-objeto" placeholder="Objeto encontrado..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('objetos')">+</button>
-                            </div>
-                            <div id="objetos-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-atmosfera" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="nova-atmosfera" placeholder="Atmosfera do lugar..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('atmosfera')">+</button>
-                            </div>
-                            <div id="atmosfera-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-desejos" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="novo-desejo" placeholder="Desejo despertado..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('desejos')">+</button>
-                            </div>
-                            <div id="desejos-list" class="registos-list"></div>
-                        </div>
-
-                        <div id="tab-acasos" class="tab-content">
-                            <div class="tab-input">
-                                <input type="text" id="novo-acaso" placeholder="Acaso significativo..." class="input">
-                                <button class="btn-accent" onclick="adicionarRegisto('acasos')">+</button>
-                            </div>
-                            <div id="acasos-list" class="registos-list"></div>
+                    <!-- Lista de Descobertas -->
+                    <div class="descobertas-section">
+                        <h2 class="section-title">
+                            <span>Descobertas</span>
+                            <span id="total-descobertas" class="badge">0</span>
+                        </h2>
+                        <div id="descobertas-list" class="descobertas-list">
+                            <p class="empty-message">Ainda não há descobertas. Comece a explorar!</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- MAPA PAGE -->
-        <div id="page-mapa" class="page">
+        <!-- ARQUIVO PAGE -->
+        <div id="page-arquivo" class="page">
             <div class="container">
                 <div class="page-header">
-                    <div>
-                        <h1 class="page-title">Mapa de Derivas</h1>
-                        <p class="page-subtitle">Visualize suas derivas no mapa</p>
-                    </div>
+                    <h1 class="page-title">📁 Derivas Arquivadas</h1>
+                    <button class="btn-primary" onclick="criarNovaDeriva()">+ Nova Deriva</button>
                 </div>
-
-                <div class="card">
-                    <div id="mapa-derivs" style="height: 500px; width: 100%; border-radius: 0.5rem;"></div>
-                    <div id="mapa-info" class="mapa-info" style="margin-top: 1rem; display: none;">
-                        <p style="color: #6b6b80; font-size: 0.875rem;">Clique em um marcador para ver detalhes da deriva</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- HISTORICO PAGE -->
-        <div id="page-historico" class="page">
-            <div class="container">
-                <div class="page-header">
-                    <div>
-                        <h1 class="page-title">Histórico de Derivas</h1>
-                        <p class="page-subtitle" id="total-derivas">0 derivas registradas</p>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="btn-secondary" onclick="exportarDados()">↓ Exportar</button>
-                        <button class="btn-secondary" onclick="importarDados()">↑ Importar</button>
-                    </div>
-                </div>
-
-                <div class="stats-grid" id="stats-grid"></div>
-
-                <!-- Derivas Pausadas -->
-                <div id="pausadas-section" style="display: none; margin-bottom: 2rem;">
-                    <h2 style="font-family: 'Georgia', serif; color: #f59e0b; margin-bottom: 1rem;">⏸️ Derivas Pausadas</h2>
-                    <div id="pausadas-list" class="historico-list"></div>
-                </div>
-
-                <!-- Derivas Finalizadas -->
-                <div id="finalizadas-section">
-                    <h2 style="font-family: 'Georgia', serif; color: #34d399; margin-bottom: 1rem;">✓ Derivas Finalizadas</h2>
-                    <div id="historico-list" class="historico-list"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CONFIG PAGE -->
-        <div id="page-config" class="page">
-            <div class="container">
-                <h1 class="page-title">Configurações</h1>
-
-                <div class="card">
-                    <h2>Perfil do Derivante</h2>
-                    <div class="form-group">
-                        <label class="label">Nome</label>
-                        <input type="text" id="config-nome" placeholder="Seu nome ou pseudônimo" class="input">
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Cidade base</label>
-                        <input type="text" id="config-cidade" placeholder="Sua cidade principal" class="input">
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Tema preferido</label>
-                        <input type="text" id="config-tema" placeholder="Ex: arquitetura, pessoas, sons..." class="input">
-                    </div>
-                    <button class="btn-primary" onclick="salvarConfig()">Salvar</button>
-                </div>
-
-                <div class="card">
-                    <h2>Sobre</h2>
-                    <p><strong>Deriva</strong> — v1.0</p>
-                    <p>Aplicação pessoal para prática de deriva urbana situacionista.</p>
-                    <p>Inspirado em "Théorie de la Dérive" de Guy Debord (1956).</p>
-                    <p class="text-small">Dados armazenados em SQLite no servidor.</p>
-                </div>
-
-                <div class="card danger">
-                    <h2>Zona de Perigo</h2>
-                    <p>Apagar todos os dados registrados.</p>
-                    <button class="btn-danger" onclick="apagarTudo()">Apagar Tudo</button>
-                </div>
+                <div id="arquivo-list" class="arquivo-list"></div>
             </div>
         </div>
     </main>
 
-    <!-- Modals -->
-    <div id="modal-finish" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2>Finalizar Deriva</h2>
-            
-            <div class="form-group">
-                <label class="label">Como está seu humor? (1-5)</label>
-                <div class="humor-buttons" id="humor-buttons"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="label">Clima</label>
-                <div class="clima-buttons" id="clima-buttons"></div>
-            </div>
-
-            <div class="form-group">
-                <label class="label">Notas da deriva</label>
-                <textarea id="notas-deriva" placeholder="O que esta deriva revelou?" class="textarea"></textarea>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="closeFinishModal()">Continuar</button>
-                <button class="btn-success" onclick="finalizarDeriva()">Salvar Deriva ✓</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-detalhes" class="modal" style="display: none;">
+    <!-- Modal: Nova Descoberta -->
+    <div id="modal-descoberta" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Detalhes da Deriva</h2>
-                <button class="modal-close" onclick="closeDetalhesModal()">✕</button>
+                <h2>Nova Descoberta</h2>
+                <button class="modal-close" onclick="fecharModalDescoberta()">✕</button>
             </div>
-            <div id="detalhes-content"></div>
+            <div class="modal-body">
+                <!-- Preview da Foto -->
+                <div id="foto-preview" class="foto-preview" style="display: none;">
+                    <img id="foto-preview-img" src="" alt="Preview">
+                    <button class="btn-remove-foto" onclick="removerFoto()">✕</button>
+                </div>
+
+                <!-- Localização -->
+                <div class="form-group">
+                    <label class="label">📍 Localização</label>
+                    <div id="desc-localizacao" class="localizacao-display">
+                        <button class="btn-secondary" onclick="capturarLocalizacao()">📍 Capturar localização atual</button>
+                        <p id="desc-coords" class="coords-text"></p>
+                    </div>
+                </div>
+
+                <!-- Foto -->
+                <div class="form-group">
+                    <label class="label">📷 Foto</label>
+                    <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="processarFoto(event)" style="display: none;">
+                    <button class="btn-secondary" onclick="document.getElementById('foto-input').click()">📷 Escolher ou tirar foto</button>
+                </div>
+
+                <!-- Notas -->
+                <div class="form-group">
+                    <label class="label">✍️ Notas</label>
+                    <textarea id="desc-notas" class="textarea" placeholder="Descreva a sua descoberta..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalDescoberta()">Cancelar</button>
+                <button class="btn-success" onclick="guardarDescoberta()">💾 Guardar</button>
+            </div>
         </div>
     </div>
 
-    <div id="modal-edit" class="modal" style="display: none;">
+    <!-- Modal: Detalhes da Descoberta -->
+    <div id="modal-detalhes" class="modal" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h2>Editar Deriva</h2>
-                <button class="modal-close" onclick="closeEditModal()">✕</button>
+                <h2>Descoberta</h2>
+                <button class="modal-close" onclick="fecharModalDetalhes()">✕</button>
             </div>
-            <div id="edit-content"></div>
+            <div id="detalhes-content" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Título -->
+    <div id="modal-titulo" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Título</h2>
+                <button class="modal-close" onclick="fecharModalTitulo()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="label">Título da Deriva</label>
+                    <input type="text" id="titulo-input" class="input" placeholder="Ex: Manhã em Alfama">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalTitulo()">Cancelar</button>
+                <button class="btn-success" onclick="salvarTitulo()">💾 Guardar</button>
+            </div>
         </div>
     </div>
 
@@ -376,7 +187,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="prompts.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

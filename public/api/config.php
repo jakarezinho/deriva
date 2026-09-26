@@ -1,14 +1,17 @@
 <?php
 /**
  * Configuração do banco de dados SQLite
- * Deriva Urbana - InfinityFree
+ * Deriva Urbana v2.0 - Sistema de Descobertas
  */
 
 // Configurações
 define('DB_PATH', __DIR__ . '/../data/derivas.db');
 define('DB_DIR', __DIR__ . '/../data/');
+define('FOTOS_DIR', __DIR__ . '/../data/fotos/');
+define('FOTOS_ORIGINAL_DIR', __DIR__ . '/../data/fotos/original/');
+define('FOTOS_THUMB_DIR', __DIR__ . '/../data/fotos/thumb/');
 
-// Headers CORS (permitir acesso do frontend)
+// Headers CORS
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -25,11 +28,15 @@ function getDB() {
     static $db = null;
     
     if ($db === null) {
-        // Criar diretório se não existir
+        // Criar diretórios se não existirem
         if (!is_dir(DB_DIR)) {
-            if (!mkdir(DB_DIR, 0755, true)) {
-                throw new Exception('Não foi possível criar o diretório de dados');
-            }
+            mkdir(DB_DIR, 0755, true);
+        }
+        if (!is_dir(FOTOS_ORIGINAL_DIR)) {
+            mkdir(FOTOS_ORIGINAL_DIR, 0755, true);
+        }
+        if (!is_dir(FOTOS_THUMB_DIR)) {
+            mkdir(FOTOS_THUMB_DIR, 0755, true);
         }
         
         // Abrir ou criar banco
@@ -40,47 +47,10 @@ function getDB() {
         $db->exec('
             CREATE TABLE IF NOT EXISTS derivas (
                 id TEXT PRIMARY KEY,
-                data_inicio TEXT NOT NULL,
-                data_fim TEXT,
-                duracao INTEGER,
-                local_inicio TEXT,
-                local_fim TEXT,
-                notas TEXT,
-                humor INTEGER CHECK(humor >= 1 AND humor <= 5),
-                clima TEXT,
-                distancia REAL,
-                localizacao_inicio_lat REAL,
-                localizacao_inicio_lng REAL,
-                localizacao_fim_lat REAL,
-                localizacao_fim_lng REAL,
-                estado TEXT DEFAULT "finalizada",
-                registos TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ');
-        
-        // Tabela para rastrear o trajeto completo da deriva
-        $db->exec('
-            CREATE TABLE IF NOT EXISTS pontos_trajeto (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                deriva_id TEXT NOT NULL,
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                accuracy REAL,
-                timestamp TEXT NOT NULL,
-                FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
-            )
-        ');
-        
-        $db->exec('
-            CREATE TABLE IF NOT EXISTS prompts_seguidos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                deriva_id TEXT NOT NULL,
-                prompt_id INTEGER NOT NULL,
-                prompt_text TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
+                titulo TEXT,
+                data_criacao TEXT NOT NULL,
+                estado TEXT DEFAULT "ativa",
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ');
         
@@ -88,23 +58,16 @@ function getDB() {
             CREATE TABLE IF NOT EXISTS descobertas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 deriva_id TEXT NOT NULL,
-                texto TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                notas TEXT,
+                latitude REAL,
+                longitude REAL,
+                foto_path TEXT,
+                foto_thumb_path TEXT,
+                orientacao INTEGER DEFAULT 0,
+                timestamp TEXT NOT NULL,
                 FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
             )
         ');
-        
-        $db->exec('
-            CREATE TABLE IF NOT EXISTS config (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )
-        ');
-        
-        // Inserir config padrão
-        $db->exec("INSERT OR IGNORE INTO config (key, value) VALUES ('nomeDerivante', 'Derivante')");
-        $db->exec("INSERT OR IGNORE INTO config (key, value) VALUES ('cidadeBase', '')");
-        $db->exec("INSERT OR IGNORE INTO config (key, value) VALUES ('temaPreferido', '')");
     }
     
     return $db;
@@ -126,4 +89,9 @@ function jsonError($message, $statusCode = 400) {
 function getInput() {
     $input = file_get_contents('php://input');
     return json_decode($input, true);
+}
+
+// Função para gerar ID único
+function generateId() {
+    return bin2hex(random_bytes(8));
 }
