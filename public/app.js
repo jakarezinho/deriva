@@ -51,7 +51,7 @@ async function initApp() {
         await encontrarDerivaAtiva();
         
         if (derivaAtiva) {
-            mostrarDerivaAtiva();
+            await mostrarDerivaAtiva();
         } else {
             mostrarEstadoVazio();
         }
@@ -105,7 +105,7 @@ function mostrarEstadoVazio() {
     document.getElementById('sem-deriva').style.display = 'block';
 }
 
-function mostrarDerivaAtiva() {
+async function mostrarDerivaAtiva() {
     document.getElementById('deriva-header').style.display = 'flex';
     document.getElementById('deriva-content').style.display = 'block';
     document.getElementById('sem-deriva').style.display = 'none';
@@ -118,7 +118,7 @@ function mostrarDerivaAtiva() {
     inicializarMapa();
     
     // Renderizar descobertas
-    renderDescobertas();
+    await renderDescobertas();
     
     // Iniciar geolocalização
     iniciarGeolocalizacao();
@@ -144,7 +144,7 @@ async function criarNovaDeriva() {
         
         // Mostrar nova deriva
         showPage('home');
-        mostrarDerivaAtiva();
+        await mostrarDerivaAtiva();
         
         alert('Nova deriva criada!');
     } catch (error) {
@@ -724,7 +724,7 @@ async function guardarDescoberta() {
         derivaAtiva = await derivaResponse.json();
         
         // Atualizar UI
-        renderDescobertas();
+        await renderDescobertas();
         renderMarcadores();
         
         fecharModalDescoberta();
@@ -759,7 +759,7 @@ async function eliminarDescoberta(id) {
         const derivaResponse = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
         derivaAtiva = await derivaResponse.json();
         
-        renderDescobertas();
+        await renderDescobertas();
         renderMarcadores();
         fecharModalDetalhes();
         
@@ -878,7 +878,7 @@ async function reativarDeriva(id) {
         await encontrarDerivaAtiva();
         
         showPage('home');
-        mostrarDerivaAtiva();
+        await mostrarDerivaAtiva();
         
         alert('Deriva reativada!');
     } catch (error) {
@@ -1061,7 +1061,7 @@ async function salvarEdicaoDescoberta() {
         const derivaResponse = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
         derivaAtiva = await derivaResponse.json();
         
-        renderDescobertas();
+        await renderDescobertas();
         renderMarcadores();
         
         fecharModalEditarDescoberta();
@@ -1097,7 +1097,7 @@ async function toggleFavorita(descId, event) {
         // Atualizar localmente
         desc.favorita = novaFavorita;
         
-        renderDescobertas();
+        await renderDescobertas();
         
         await carregarDerivas();
     } catch (error) {
@@ -1302,6 +1302,9 @@ async function mostrarDetalhesDescobertaComRegistos(descId) {
             <button class="btn-danger" onclick="eliminarDescoberta(${desc.id})">🗑️ Eliminar</button>
         </div>
     `;
+    
+    // Abrir o modal
+    document.getElementById('modal-detalhes').style.display = 'flex';
 }
 
 async function eliminarRegisto(registoId, descobertaId) {
