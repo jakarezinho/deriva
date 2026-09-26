@@ -1,7 +1,11 @@
-# Protege arquivos de configuração
-<FilesMatch "\.(php|ini|log|sh)$">
-    # Permite acesso apenas aos arquivos PHP da API
-    <Files "derivas.php">
+# Protege acesso direto aos ficheiros PHP
+<FilesMatch "^(config|descobertas|upload)\.php$">
+    # Permite acesso apenas aos ficheiros necessários
+    <Files "descobertas.php">
+        Order allow,deny
+        Allow from all
+    </Files>
+    <Files "upload.php">
         Order allow,deny
         Allow from all
     </Files>
@@ -10,10 +14,3 @@
         Deny from all
     </Files>
 </FilesMatch>
-
-# Permite CORS para a API
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type"
-</IfModule>

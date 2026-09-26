@@ -1,3 +1,11 @@
-# Bloqueia acesso direto aos arquivos de banco de dados
-Order deny,allow
-Deny from all
+# Protege ficheiros sensíveis
+<FilesMatch "\.(db|sqlite|php)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Permite acesso às fotos
+<FilesMatch "\.(jpg|jpeg|png|webp)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
