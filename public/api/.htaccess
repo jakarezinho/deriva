@@ -1,11 +1,15 @@
 # Protege acesso direto aos ficheiros PHP
-<FilesMatch "^(config|descobertas|upload)\.php$">
+<FilesMatch "^(config|descobertas|upload|registos)\.php$">
     # Permite acesso apenas aos ficheiros necessários
     <Files "descobertas.php">
         Order allow,deny
         Allow from all
     </Files>
     <Files "upload.php">
+        Order allow,deny
+        Allow from all
+    </Files>
+    <Files "registos.php">
         Order allow,deny
         Allow from all
     </Files>

@@ -825,6 +825,126 @@ body {
     position: relative;
 }
 
+/* Registos Situacionistas */
+.tipo-registo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tipo-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(30, 30, 46, 0.6);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tipo-btn:hover {
+    background: rgba(192, 132, 252, 0.1);
+    border-color: rgba(192, 132, 252, 0.3);
+}
+
+.tipo-btn.active {
+    background: rgba(192, 132, 252, 0.2);
+    border-color: #c084fc;
+}
+
+.tipo-icon {
+    font-size: 1.5rem;
+}
+
+.tipo-label {
+    font-size: 0.75rem;
+    color: #e2e2e8;
+}
+
+/* Lista de Registos */
+.registos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.registo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(30, 30, 46, 0.5);
+    border-radius: 0.5rem;
+}
+
+.registo-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.registo-content {
+    flex: 1;
+}
+
+.registo-tipo {
+    font-size: 0.75rem;
+    color: #c084fc;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.registo-texto {
+    font-size: 0.875rem;
+    color: #e2e2e8;
+    line-height: 1.5;
+}
+
+.registo-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.registo-btn {
+    background: none;
+    border: none;
+    color: #6b6b80;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 0.875rem;
+    transition: color 0.2s;
+}
+
+.registo-btn:hover {
+    color: #e2e2e8;
+}
+
+.registo-btn.delete:hover {
+    color: #f87171;
+}
+
+/* Badges de tipo na galeria */
+.descoberta-registos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+
+.registo-badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+    background: rgba(192, 132, 252, 0.2);
+    color: #c084fc;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .deriva-header {

@@ -396,7 +396,7 @@ function renderMarcadores() {
 
 // ============ DESCOBERTAS ============
 
-function renderDescobertas() {
+async function renderDescobertas() {
     const container = document.getElementById('descobertas-list');
     const total = document.getElementById('total-descobertas');
     
@@ -408,19 +408,45 @@ function renderDescobertas() {
     
     total.textContent = derivaAtiva.descobertas.length;
     
-    container.innerHTML = derivaAtiva.descobertas.map(desc => `
-        <div class="descoberta-item ${desc.favorita ? 'favorita' : ''}" onclick="mostrarDetalhesDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">
-            ${desc.foto_thumb_path 
-                ? `<img src="${desc.foto_thumb_path}" alt="Descoberta" class="descoberta-foto">`
-                : `<div class="descoberta-foto" style="display: flex; align-items: center; justify-content: center; color: #6b6b80;">📷</div>`
+    // Carregar registos para cada descoberta
+    const descobertasComRegistos = await Promise.all(
+        derivaAtiva.descobertas.map(async (desc) => {
+            try {
+                const regResponse = await fetch(`api/registos.php?descoberta_id=${desc.id}`);
+                const registos = await regResponse.json();
+                return { ...desc, registos };
+            } catch (error) {
+                return { ...desc, registos: [] };
             }
-            ${desc.favorita ? '<span class="favorita-badge">★ FAVORITA</span>' : ''}
-            <div class="descoberta-info">
-                <p class="descoberta-notas">${desc.notas || 'Sem notas'}</p>
-                <p class="descoberta-data">${formatarHora(desc.timestamp)}</p>
+        })
+    );
+    
+    container.innerHTML = descobertasComRegistos.map(desc => {
+        const registosBadges = desc.registos && desc.registos.length > 0
+            ? `<div class="descoberta-registos">
+                ${[...new Set(desc.registos.map(r => r.tipo))].slice(0, 3).map(tipo => {
+                    const tipoInfo = TIPOS_REGISTO[tipo];
+                    return `<span class="registo-badge">${tipoInfo.icon} ${tipoInfo.label}</span>`;
+                }).join('')}
+                ${desc.registos.length > 3 ? `<span class="registo-badge">+${desc.registos.length - 3}</span>` : ''}
+               </div>`
+            : '';
+        
+        return `
+            <div class="descoberta-item ${desc.favorita ? 'favorita' : ''}" onclick="mostrarDetalhesDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">
+                ${desc.foto_thumb_path 
+                    ? `<img src="${desc.foto_thumb_path}" alt="Descoberta" class="descoberta-foto">`
+                    : `<div class="descoberta-foto" style="display: flex; align-items: center; justify-content: center; color: #6b6b80;">📷</div>`
+                }
+                ${desc.favorita ? '<span class="favorita-badge">★ FAVORITA</span>' : ''}
+                <div class="descoberta-info">
+                    <p class="descoberta-notas">${desc.notas || 'Sem notas'}</p>
+                    ${registosBadges}
+                    <p class="descoberta-data">${formatarHora(desc.timestamp)}</p>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function adicionarDescoberta() {
@@ -712,36 +738,7 @@ async function guardarDescoberta() {
 // ============ DETALHES DA DESCOBERTA ============
 
 function mostrarDetalhesDescoberta(desc) {
-    const content = document.getElementById('detalhes-content');
-    
-    content.innerHTML = `
-        ${desc.foto_path ? `
-            <div class="detalhes-foto">
-                <img src="${desc.foto_path}" alt="Descoberta" style="transform: rotate(${desc.orientacao}deg);">
-            </div>
-        ` : ''}
-        
-        <div class="detalhes-meta">
-            ${desc.latitude && desc.longitude ? `
-                <span>📍 ${desc.latitude.toFixed(6)}, ${desc.longitude.toFixed(6)}</span>
-            ` : ''}
-            <span>🕐 ${formatarDataHora(desc.timestamp)}</span>
-            <button class="favorita-btn ${desc.favorita ? 'ativa' : 'inativa'}" onclick="toggleFavorita(${desc.id}, event)" title="${desc.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'}">
-                ${desc.favorita ? '★' : '☆'}
-            </button>
-        </div>
-        
-        ${desc.notas ? `
-            <div class="detalhes-notas">${desc.notas}</div>
-        ` : '<p style="color: #6b6b80; font-style: italic;">Sem notas</p>'}
-        
-        <div class="detalhes-actions">
-            <button class="btn-secondary" onclick="editarDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">✏️ Editar</button>
-            <button class="btn-danger" onclick="eliminarDescoberta(${desc.id})">🗑️ Eliminar</button>
-        </div>
-    `;
-    
-    document.getElementById('modal-detalhes').style.display = 'flex';
+    mostrarDetalhesDescobertaComRegistos(desc.id);
 }
 
 function fecharModalDetalhes() {
@@ -1121,9 +1118,15 @@ async function exportarDeriva() {
         const response = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
         const derivaCompleta = await response.json();
         
+        // Carregar registos para cada descoberta
+        for (let desc of derivaCompleta.descobertas) {
+            const regResponse = await fetch(`api/registos.php?descoberta_id=${desc.id}`);
+            desc.registos = await regResponse.json();
+        }
+        
         // Criar objeto para exportação
         const dadosExport = {
-            versao: '2.0',
+            versao: '2.1',
             data_exportacao: new Date().toISOString(),
             deriva: derivaCompleta
         };
@@ -1145,6 +1148,175 @@ async function exportarDeriva() {
         alert('Deriva exportada com sucesso!');
     } catch (error) {
         alert('Erro ao exportar: ' + error.message);
+    }
+}
+
+// ============ REGISTOS SITUACIONISTAS ============
+
+const TIPOS_REGISTO = {
+    sensorial: { icon: '👁️', label: 'Sensorial', placeholder: 'O que viu, ouviu, cheirou, tocou ou provou?' },
+    pensamento: { icon: '💭', label: 'Pensamento Errante', placeholder: 'O que pensou enquanto caminhava?' },
+    encontro: { icon: '👥', label: 'Encontro', placeholder: 'Com quem se cruzou ou interagiu?' },
+    imagem: { icon: '🖼️', label: 'Imagem Mental', placeholder: 'Que imagem ou visão teve?' },
+    frase: { icon: '💬', label: 'Frase Ouvida', placeholder: 'Que frase ou conversa ouviu?' },
+    objeto: { icon: '🎁', label: 'Objeto Encontrado', placeholder: 'Que objeto encontrou ou o chamou a atenção?' },
+    atmosfera: { icon: '🌫️', label: 'Atmosfera', placeholder: 'Que atmosfera ou ambiente sentiu?' },
+    desejo: { icon: '✨', label: 'Desejo', placeholder: 'Que desejo ou vontade sentiu?' },
+    acaso: { icon: '🎲', label: 'Acaso', placeholder: 'Que coincidência ou acaso aconteceu?' }
+};
+
+let registoAtual = {
+    descobertaId: null,
+    tipo: null,
+    conteudo: ''
+};
+
+function abrirModalRegisto(descobertaId) {
+    registoAtual.descobertaId = descobertaId;
+    registoAtual.tipo = null;
+    registoAtual.conteudo = '';
+    
+    // Reset UI
+    document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('registo-conteudo').value = '';
+    document.getElementById('registo-conteudo-label').textContent = 'Conteúdo';
+    document.getElementById('registo-conteudo').placeholder = 'Descreva o seu registo...';
+    
+    document.getElementById('modal-registo').style.display = 'flex';
+}
+
+function fecharModalRegisto() {
+    document.getElementById('modal-registo').style.display = 'none';
+    registoAtual = {
+        descobertaId: null,
+        tipo: null,
+        conteudo: ''
+    };
+}
+
+function selecionarTipo(tipo) {
+    registoAtual.tipo = tipo;
+    
+    // Atualizar UI
+    document.querySelectorAll('.tipo-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tipo === tipo);
+    });
+    
+    // Atualizar placeholder
+    const tipoInfo = TIPOS_REGISTO[tipo];
+    document.getElementById('registo-conteudo-label').textContent = `${tipoInfo.icon} ${tipoInfo.label}`;
+    document.getElementById('registo-conteudo').placeholder = tipoInfo.placeholder;
+}
+
+async function guardarRegisto() {
+    if (!registoAtual.tipo) {
+        alert('Selecione um tipo de registo');
+        return;
+    }
+    
+    const conteudo = document.getElementById('registo-conteudo').value.trim();
+    if (!conteudo) {
+        alert('Escreva o conteúdo do registo');
+        return;
+    }
+    
+    try {
+        const response = await fetch('api/registos.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                descoberta_id: registoAtual.descobertaId,
+                tipo: registoAtual.tipo,
+                conteudo: conteudo
+            })
+        });
+        
+        if (!response.ok) throw new Error('Erro ao guardar registo');
+        
+        fecharModalRegisto();
+        await mostrarDetalhesDescobertaComRegistos(registoAtual.descobertaId);
+    } catch (error) {
+        alert('Erro ao guardar: ' + error.message);
+    }
+}
+
+async function mostrarDetalhesDescobertaComRegistos(descId) {
+    const desc = derivaAtiva.descobertas.find(d => d.id === descId);
+    if (!desc) return;
+    
+    // Carregar registos
+    const regResponse = await fetch(`api/registos.php?descoberta_id=${descId}`);
+    const registos = await regResponse.json();
+    
+    const content = document.getElementById('detalhes-content');
+    
+    let registosHTML = '';
+    if (registos.length > 0) {
+        registosHTML = `
+            <div class="registos-list">
+                ${registos.map(r => {
+                    const tipoInfo = TIPOS_REGISTO[r.tipo];
+                    return `
+                        <div class="registo-item">
+                            <span class="registo-icon">${tipoInfo.icon}</span>
+                            <div class="registo-content">
+                                <div class="registo-tipo">${tipoInfo.label}</div>
+                                <div class="registo-texto">${r.conteudo}</div>
+                            </div>
+                            <div class="registo-actions">
+                                <button class="registo-btn delete" onclick="eliminarRegisto(${r.id}, ${descId})" title="Eliminar">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+    
+    content.innerHTML = `
+        ${desc.foto_path ? `
+            <div class="detalhes-foto">
+                <img src="${desc.foto_path}" alt="Descoberta" style="transform: rotate(${desc.orientacao}deg);">
+            </div>
+        ` : ''}
+        
+        <div class="detalhes-meta">
+            ${desc.latitude && desc.longitude ? `
+                <span>📍 ${desc.latitude.toFixed(6)}, ${desc.longitude.toFixed(6)}</span>
+            ` : ''}
+            <span>🕐 ${formatarDataHora(desc.timestamp)}</span>
+            <button class="favorita-btn ${desc.favorita ? 'ativa' : 'inativa'}" onclick="toggleFavorita(${desc.id}, event)" title="${desc.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'}">
+                ${desc.favorita ? '★' : '☆'}
+            </button>
+        </div>
+        
+        ${desc.notas ? `
+            <div class="detalhes-notas">${desc.notas}</div>
+        ` : ''}
+        
+        ${registosHTML}
+        
+        <div class="detalhes-actions">
+            <button class="btn-secondary" onclick="abrirModalRegisto(${desc.id})">+ Registo</button>
+            <button class="btn-secondary" onclick="editarDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">✏️ Editar</button>
+            <button class="btn-danger" onclick="eliminarDescoberta(${desc.id})">🗑️ Eliminar</button>
+        </div>
+    `;
+}
+
+async function eliminarRegisto(registoId, descobertaId) {
+    if (!confirm('Eliminar este registo?')) return;
+    
+    try {
+        const response = await fetch(`api/registos.php?id=${registoId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Erro ao eliminar registo');
+        
+        await mostrarDetalhesDescobertaComRegistos(descobertaId);
+    } catch (error) {
+        alert('Erro ao eliminar: ' + error.message);
     }
 }
 

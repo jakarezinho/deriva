@@ -69,6 +69,17 @@ function getDB() {
                 FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
             )
         ');
+        
+        $db->exec('
+            CREATE TABLE IF NOT EXISTS registos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                descoberta_id INTEGER NOT NULL,
+                tipo TEXT NOT NULL,
+                conteudo TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (descoberta_id) REFERENCES descobertas(id) ON DELETE CASCADE
+            )
+        ');
     }
     
     return $db;

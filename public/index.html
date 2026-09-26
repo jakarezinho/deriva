@@ -227,6 +227,70 @@
         </div>
     </div>
 
+    <!-- Modal: Adicionar Registo Situacionista -->
+    <div id="modal-registo" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Adicionar Registo</h2>
+                <button class="modal-close" onclick="fecharModalRegisto()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Seleção de Tipo -->
+                <div class="form-group">
+                    <label class="label">Tipo de Registo</label>
+                    <div class="tipo-registo-grid">
+                        <button class="tipo-btn" data-tipo="sensorial" onclick="selecionarTipo('sensorial')">
+                            <span class="tipo-icon">👁️</span>
+                            <span class="tipo-label">Sensorial</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="pensamento" onclick="selecionarTipo('pensamento')">
+                            <span class="tipo-icon">💭</span>
+                            <span class="tipo-label">Pensamento</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="encontro" onclick="selecionarTipo('encontro')">
+                            <span class="tipo-icon">👥</span>
+                            <span class="tipo-label">Encontro</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="imagem" onclick="selecionarTipo('imagem')">
+                            <span class="tipo-icon">🖼️</span>
+                            <span class="tipo-label">Imagem Mental</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="frase" onclick="selecionarTipo('frase')">
+                            <span class="tipo-icon">💬</span>
+                            <span class="tipo-label">Frase Ouvida</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="objeto" onclick="selecionarTipo('objeto')">
+                            <span class="tipo-icon">🎁</span>
+                            <span class="tipo-label">Objeto</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="atmosfera" onclick="selecionarTipo('atmosfera')">
+                            <span class="tipo-icon">🌫️</span>
+                            <span class="tipo-label">Atmosfera</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="desejo" onclick="selecionarTipo('desejo')">
+                            <span class="tipo-icon">✨</span>
+                            <span class="tipo-label">Desejo</span>
+                        </button>
+                        <button class="tipo-btn" data-tipo="acaso" onclick="selecionarTipo('acaso')">
+                            <span class="tipo-icon">🎲</span>
+                            <span class="tipo-label">Acaso</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Conteúdo -->
+                <div class="form-group">
+                    <label class="label" id="registo-conteudo-label">Conteúdo</label>
+                    <textarea id="registo-conteudo" class="textarea" placeholder="Descreva o seu registo..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalRegisto()">Cancelar</button>
+                <button class="btn-success" onclick="guardarRegisto()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading -->
     <div id="loading" class="loading">
         <div class="loading-icon">◉</div>
