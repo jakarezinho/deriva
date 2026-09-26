@@ -488,10 +488,13 @@ let registoCriacaoTemp = {
 };
 
 function adicionarRegistoCriacao() {
+    // Resetar ambas as variáveis
     registoCriacaoTemp = {
         tipo: null,
         conteudo: ''
     };
+    registoAtual.tipo = null;
+    registoAtual.conteudo = '';
     
     // Abrir modal de registo
     document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
@@ -508,12 +511,15 @@ function adicionarRegistoCriacao() {
 }
 
 function guardarRegistoCriacao() {
-    if (!registoCriacaoTemp.tipo) {
+    // Usar registoAtual.tipo que é atualizado por selecionarTipo()
+    const tipo = registoAtual.tipo;
+    const conteudo = document.getElementById('registo-conteudo').value.trim();
+    
+    if (!tipo) {
         alert('Selecione um tipo de registo');
         return;
     }
     
-    const conteudo = document.getElementById('registo-conteudo').value.trim();
     if (!conteudo) {
         alert('Escreva o conteúdo do registo');
         return;
@@ -521,12 +527,21 @@ function guardarRegistoCriacao() {
     
     // Adicionar ao array de registos da descoberta
     descobertaAtual.registos.push({
-        tipo: registoCriacaoTemp.tipo,
+        tipo: tipo,
         conteudo: conteudo
     });
     
+    // Resetar estado
+    registoAtual.tipo = null;
+    registoCriacaoTemp.tipo = null;
+    
     // Fechar modal de registo
     document.getElementById('modal-registo').style.display = 'none';
+    
+    // Restaurar botão de guardar normal para próxima vez
+    const modalRegisto = document.getElementById('modal-registo');
+    const btnGuardar = modalRegisto.querySelector('.btn-success');
+    btnGuardar.onclick = guardarRegisto;
     
     // Atualizar lista de registos na UI
     renderRegistosCriacao();
@@ -1279,6 +1294,10 @@ function abrirModalRegisto(descobertaId) {
     registoAtual.conteudo = '';
     registoAtual.modo = 'existente';
     
+    // Também resetar registoCriacaoTemp
+    registoCriacaoTemp.tipo = null;
+    registoCriacaoTemp.conteudo = '';
+    
     // Reset UI
     document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('registo-conteudo').value = '';
@@ -1304,7 +1323,9 @@ function fecharModalRegisto() {
 }
 
 function selecionarTipo(tipo) {
+    // Atualizar ambas as variáveis para compatibilidade
     registoAtual.tipo = tipo;
+    registoCriacaoTemp.tipo = tipo;
     
     // Atualizar UI
     document.querySelectorAll('.tipo-btn').forEach(btn => {
