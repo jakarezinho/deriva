@@ -145,6 +145,13 @@
                     <label class="label">✍️ Notas</label>
                     <textarea id="desc-notas" class="textarea" placeholder="Descreva a sua descoberta..."></textarea>
                 </div>
+
+                <!-- Registos Situacionistas -->
+                <div class="form-group">
+                    <label class="label">📝 Registos da Descoberta</label>
+                    <button class="btn-secondary" onclick="adicionarRegistoCriacao()" style="width: 100%; margin-bottom: 0.5rem;">+ Adicionar Registo</button>
+                    <div id="registos-criacao-list" class="registos-list"></div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="fecharModalDescoberta()">Cancelar</button>

@@ -14,7 +14,8 @@ let descobertaAtual = {
     fotoPath: null,
     fotoThumbPath: null,
     orientacao: 0,
-    notas: ''
+    notas: '',
+    registos: [] // Array de registos temporários
 };
 
 // Estado do modal de edição de descoberta
@@ -462,12 +463,14 @@ function adicionarDescoberta() {
         fotoPath: null,
         fotoThumbPath: null,
         orientacao: 0,
-        notas: ''
+        notas: '',
+        registos: []
     };
     
     // Atualizar UI
     document.getElementById('desc-notas').value = '';
     document.getElementById('foto-preview').style.display = 'none';
+    document.getElementById('registos-criacao-list').innerHTML = '';
     
     if (descobertaAtual.latitude && descobertaAtual.longitude) {
         document.getElementById('desc-coords').textContent = 
@@ -477,6 +480,86 @@ function adicionarDescoberta() {
     }
     
     document.getElementById('modal-descoberta').style.display = 'flex';
+}
+
+let registoCriacaoTemp = {
+    tipo: null,
+    conteudo: ''
+};
+
+function adicionarRegistoCriacao() {
+    registoCriacaoTemp = {
+        tipo: null,
+        conteudo: ''
+    };
+    
+    // Abrir modal de registo
+    document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('registo-conteudo').value = '';
+    document.getElementById('registo-conteudo-label').textContent = 'Conteúdo';
+    document.getElementById('registo-conteudo').placeholder = 'Descreva o seu registo...';
+    
+    // Mudar o botão de guardar para adicionar à criação
+    const modalRegisto = document.getElementById('modal-registo');
+    const btnGuardar = modalRegisto.querySelector('.btn-success');
+    btnGuardar.onclick = guardarRegistoCriacao;
+    
+    modalRegisto.style.display = 'flex';
+}
+
+function guardarRegistoCriacao() {
+    if (!registoCriacaoTemp.tipo) {
+        alert('Selecione um tipo de registo');
+        return;
+    }
+    
+    const conteudo = document.getElementById('registo-conteudo').value.trim();
+    if (!conteudo) {
+        alert('Escreva o conteúdo do registo');
+        return;
+    }
+    
+    // Adicionar ao array de registos da descoberta
+    descobertaAtual.registos.push({
+        tipo: registoCriacaoTemp.tipo,
+        conteudo: conteudo
+    });
+    
+    // Fechar modal de registo
+    document.getElementById('modal-registo').style.display = 'none';
+    
+    // Atualizar lista de registos na UI
+    renderRegistosCriacao();
+}
+
+function renderRegistosCriacao() {
+    const container = document.getElementById('registos-criacao-list');
+    
+    if (descobertaAtual.registos.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.innerHTML = descobertaAtual.registos.map((r, index) => {
+        const tipoInfo = TIPOS_REGISTO[r.tipo];
+        return `
+            <div class="registo-item">
+                <span class="registo-icon">${tipoInfo.icon}</span>
+                <div class="registo-content">
+                    <div class="registo-tipo">${tipoInfo.label}</div>
+                    <div class="registo-texto">${r.conteudo}</div>
+                </div>
+                <div class="registo-actions">
+                    <button class="registo-btn delete" onclick="removerRegistoCriacao(${index})" title="Eliminar">🗑️</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function removerRegistoCriacao(index) {
+    descobertaAtual.registos.splice(index, 1);
+    renderRegistosCriacao();
 }
 
 function fecharModalDescoberta() {
@@ -691,8 +774,8 @@ function abrirCamera() {
 async function guardarDescoberta() {
     const notas = document.getElementById('desc-notas').value.trim();
     
-    if (!notas && !descobertaAtual.fotoPath) {
-        alert('Adicione pelo menos notas ou uma foto');
+    if (!notas && !descobertaAtual.fotoPath && descobertaAtual.registos.length === 0) {
+        alert('Adicione pelo menos notas, uma foto ou um registo');
         return;
     }
     
@@ -712,6 +795,24 @@ async function guardarDescoberta() {
         });
         
         if (!response.ok) throw new Error('Erro ao guardar descoberta');
+        
+        const result = await response.json();
+        const novaDescobertaId = result.id;
+        
+        // Guardar registos se existirem
+        if (descobertaAtual.registos.length > 0) {
+            for (const registo of descobertaAtual.registos) {
+                await fetch('api/registos.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        descoberta_id: novaDescobertaId,
+                        tipo: registo.tipo,
+                        conteudo: registo.conteudo
+                    })
+                });
+            }
+        }
         
         // Remover marcador preview
         if (marcadorPreview && mapa) {
@@ -1097,9 +1198,9 @@ async function toggleFavorita(descId, event) {
         // Atualizar localmente
         desc.favorita = novaFavorita;
         
+        // Re-renderizar sem recarregar do servidor
         await renderDescobertas();
-        
-        await carregarDerivas();
+        renderMarcadores();
     } catch (error) {
         alert('Erro ao atualizar favorito: ' + error.message);
     }
@@ -1168,19 +1269,26 @@ const TIPOS_REGISTO = {
 let registoAtual = {
     descobertaId: null,
     tipo: null,
-    conteudo: ''
+    conteudo: '',
+    modo: 'existente' // 'criacao' ou 'existente'
 };
 
 function abrirModalRegisto(descobertaId) {
     registoAtual.descobertaId = descobertaId;
     registoAtual.tipo = null;
     registoAtual.conteudo = '';
+    registoAtual.modo = 'existente';
     
     // Reset UI
     document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('registo-conteudo').value = '';
     document.getElementById('registo-conteudo-label').textContent = 'Conteúdo';
     document.getElementById('registo-conteudo').placeholder = 'Descreva o seu registo...';
+    
+    // Restaurar botão de guardar normal
+    const modalRegisto = document.getElementById('modal-registo');
+    const btnGuardar = modalRegisto.querySelector('.btn-success');
+    btnGuardar.onclick = guardarRegisto;
     
     document.getElementById('modal-registo').style.display = 'flex';
 }
@@ -1190,7 +1298,8 @@ function fecharModalRegisto() {
     registoAtual = {
         descobertaId: null,
         tipo: null,
-        conteudo: ''
+        conteudo: '',
+        modo: 'existente'
     };
 }
 
