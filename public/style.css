@@ -531,7 +531,7 @@ body {
 .modal {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -713,6 +713,27 @@ body {
 }
 
 /* Leaflet Customizations */
+.mapa {
+    z-index: 1 !important;
+}
+
+.leaflet-container {
+    z-index: 1 !important;
+}
+
+.leaflet-pane {
+    z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+    z-index: 2 !important;
+}
+
+.leaflet-popup-pane {
+    z-index: 3 !important;
+}
+
 .leaflet-popup-content-wrapper {
     background: rgba(18, 18, 26, 0.95);
     color: #e2e2e8;
