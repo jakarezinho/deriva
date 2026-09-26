@@ -53,7 +53,7 @@ try {
 
 function getDescobertas($db, $derivaId) {
     $stmt = $db->prepare('
-        SELECT id, notas, latitude, longitude, foto_path, foto_thumb_path, orientacao, timestamp
+        SELECT id, notas, latitude, longitude, foto_path, foto_thumb_path, orientacao, favorita, timestamp
         FROM descobertas
         WHERE deriva_id = :id
         ORDER BY timestamp ASC
@@ -71,6 +71,7 @@ function getDescobertas($db, $derivaId) {
             'foto_path' => $row['foto_path'],
             'foto_thumb_path' => $row['foto_thumb_path'],
             'orientacao' => (int)$row['orientacao'],
+            'favorita' => (int)$row['favorita'],
             'timestamp' => $row['timestamp']
         ];
     }
@@ -100,8 +101,8 @@ function criarDescoberta($db) {
     }
     
     $stmt = $db->prepare('
-        INSERT INTO descobertas (deriva_id, notas, latitude, longitude, foto_path, foto_thumb_path, orientacao, timestamp)
-        VALUES (:deriva_id, :notas, :latitude, :longitude, :foto_path, :foto_thumb_path, :orientacao, :timestamp)
+        INSERT INTO descobertas (deriva_id, notas, latitude, longitude, foto_path, foto_thumb_path, orientacao, favorita, timestamp)
+        VALUES (:deriva_id, :notas, :latitude, :longitude, :foto_path, :foto_thumb_path, :orientacao, :favorita, :timestamp)
     ');
     
     $stmt->bindValue(':deriva_id', $data['deriva_id'], SQLITE3_TEXT);
@@ -111,6 +112,7 @@ function criarDescoberta($db) {
     $stmt->bindValue(':foto_path', $data['foto_path'] ?? null, SQLITE3_TEXT);
     $stmt->bindValue(':foto_thumb_path', $data['foto_thumb_path'] ?? null, SQLITE3_TEXT);
     $stmt->bindValue(':orientacao', $data['orientacao'] ?? 0, SQLITE3_INTEGER);
+    $stmt->bindValue(':favorita', $data['favorita'] ?? 0, SQLITE3_INTEGER);
     $stmt->bindValue(':timestamp', date('c'), SQLITE3_TEXT);
     
     $stmt->execute();
@@ -167,6 +169,10 @@ function atualizarDescoberta($db) {
     if (isset($data['orientacao'])) {
         $updates[] = 'orientacao = :orientacao';
         $params[':orientacao'] = $data['orientacao'];
+    }
+    if (isset($data['favorita'])) {
+        $updates[] = 'favorita = :favorita';
+        $params[':favorita'] = $data['favorita'] ? 1 : 0;
     }
     
     if (empty($updates)) {
