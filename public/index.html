@@ -67,6 +67,10 @@
                             <span class="btn-icon">✍️</span>
                             <span>Notas</span>
                         </button>
+                        <button class="btn-action" onclick="exportarDeriva()">
+                            <span class="btn-icon">💾</span>
+                            <span>Exportar</span>
+                        </button>
                     </div>
 
                     <!-- Localização Atual -->
@@ -176,6 +180,49 @@
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="fecharModalTitulo()">Cancelar</button>
                 <button class="btn-success" onclick="salvarTitulo()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Descoberta -->
+    <div id="modal-editar-descoberta" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Descoberta</h2>
+                <button class="modal-close" onclick="fecharModalEditarDescoberta()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Preview da Foto -->
+                <div id="edit-foto-preview" class="foto-preview" style="display: none;">
+                    <img id="edit-foto-preview-img" src="" alt="Preview">
+                    <button class="btn-remove-foto" onclick="removerFotoEdicao()">✕</button>
+                </div>
+
+                <!-- Localização -->
+                <div class="form-group">
+                    <label class="label">📍 Localização</label>
+                    <div class="localizacao-display">
+                        <button class="btn-secondary" onclick="capturarLocalizacaoEdicao()">📍 Capturar localização atual</button>
+                        <p id="edit-desc-coords" class="coords-text"></p>
+                    </div>
+                </div>
+
+                <!-- Foto -->
+                <div class="form-group">
+                    <label class="label">📷 Foto</label>
+                    <input type="file" id="edit-foto-input" accept="image/*" capture="environment" onchange="processarFotoEdicao(event)" style="display: none;">
+                    <button class="btn-secondary" onclick="document.getElementById('edit-foto-input').click()">📷 Mudar foto</button>
+                </div>
+
+                <!-- Notas -->
+                <div class="form-group">
+                    <label class="label">✍️ Notas</label>
+                    <textarea id="edit-desc-notas" class="textarea" placeholder="Descreva a sua descoberta..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalEditarDescoberta()">Cancelar</button>
+                <button class="btn-success" onclick="salvarEdicaoDescoberta()">💾 Guardar</button>
             </div>
         </div>
     </div>

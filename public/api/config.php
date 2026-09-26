@@ -64,6 +64,7 @@ function getDB() {
                 foto_path TEXT,
                 foto_thumb_path TEXT,
                 orientacao INTEGER DEFAULT 0,
+                favorita INTEGER DEFAULT 0,
                 timestamp TEXT NOT NULL,
                 FOREIGN KEY (deriva_id) REFERENCES derivas(id) ON DELETE CASCADE
             )

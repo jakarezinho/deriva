@@ -5,6 +5,7 @@ let mapa = null;
 let markers = [];
 let localizacaoAtual = null;
 let watchId = null;
+let marcadorPreview = null; // Marcador temporário de localização
 
 // Estado do modal de descoberta
 let descobertaAtual = {
@@ -14,6 +15,23 @@ let descobertaAtual = {
     fotoThumbPath: null,
     orientacao: 0,
     notas: ''
+};
+
+// Estado do modal de edição de descoberta
+let descobertaEmEdicao = null;
+let dadosEdicao = {
+    latitude: null,
+    longitude: null,
+    fotoPath: null,
+    fotoThumbPath: null,
+    orientacao: 0,
+    notas: ''
+};
+
+// Coordenadas de Caldas da Rainha (fallback)
+const CALDAS_RAINHA = {
+    lat: 39.4145,
+    lng: -9.1143
 };
 
 // API URLs
@@ -254,7 +272,28 @@ function localizarMe() {
     }
     
     if (mapa) {
+        // Centrar na localização
         mapa.setView([localizacaoAtual.lat, localizacaoAtual.lng], 16);
+        
+        // Remover marcador preview anterior se existir
+        if (marcadorPreview) {
+            mapa.removeLayer(marcadorPreview);
+        }
+        
+        // Criar marcador preview temporário
+        const previewIcon = L.divIcon({
+            className: 'preview-marker-container',
+            html: '<div class="preview-marker"></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+        
+        marcadorPreview = L.marker([localizacaoAtual.lat, localizacaoAtual.lng], {
+            icon: previewIcon
+        }).addTo(mapa);
+        
+        // Adicionar popup informativo
+        marcadorPreview.bindPopup('<strong>📍 Sua localização atual</strong><br><small>Este marcador desaparecerá quando guardar a descoberta</small>').openPopup();
     }
 }
 
@@ -293,12 +332,30 @@ function inicializarMapa() {
         mapa.remove();
     }
     
-    // Centrar na localização atual ou em Portugal
-    const centro = localizacaoAtual 
-        ? [localizacaoAtual.lat, localizacaoAtual.lng]
-        : [38.7223, -9.1393]; // Lisboa
+    // Verificar se há marcadores para centrar
+    const temMarcadores = derivaAtiva && derivaAtiva.descobertas && 
+        derivaAtiva.descobertas.some(d => d.latitude && d.longitude);
     
-    mapa = L.map('mapa').setView(centro, 13);
+    let centro, zoom;
+    
+    if (temMarcadores) {
+        // Calcular bounds de todos os marcadores
+        const bounds = L.latLngBounds();
+        derivaAtiva.descobertas.forEach(d => {
+            if (d.latitude && d.longitude) {
+                bounds.extend([d.latitude, d.longitude]);
+            }
+        });
+        
+        // Criar mapa e ajustar aos bounds
+        mapa = L.map('mapa');
+        mapa.fitBounds(bounds, { padding: [50, 50] });
+    } else {
+        // Sem marcadores: centrar em Caldas da Rainha
+        centro = [CALDAS_RAINHA.lat, CALDAS_RAINHA.lng];
+        zoom = 13;
+        mapa = L.map('mapa').setView(centro, zoom);
+    }
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
@@ -352,11 +409,12 @@ function renderDescobertas() {
     total.textContent = derivaAtiva.descobertas.length;
     
     container.innerHTML = derivaAtiva.descobertas.map(desc => `
-        <div class="descoberta-item" onclick="mostrarDetalhesDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">
+        <div class="descoberta-item ${desc.favorita ? 'favorita' : ''}" onclick="mostrarDetalhesDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">
             ${desc.foto_thumb_path 
                 ? `<img src="${desc.foto_thumb_path}" alt="Descoberta" class="descoberta-foto">`
                 : `<div class="descoberta-foto" style="display: flex; align-items: center; justify-content: center; color: #6b6b80;">📷</div>`
             }
+            ${desc.favorita ? '<span class="favorita-badge">★ FAVORITA</span>' : ''}
             <div class="descoberta-info">
                 <p class="descoberta-notas">${desc.notas || 'Sem notas'}</p>
                 <p class="descoberta-data">${formatarHora(desc.timestamp)}</p>
@@ -629,6 +687,12 @@ async function guardarDescoberta() {
         
         if (!response.ok) throw new Error('Erro ao guardar descoberta');
         
+        // Remover marcador preview
+        if (marcadorPreview && mapa) {
+            mapa.removeLayer(marcadorPreview);
+            marcadorPreview = null;
+        }
+        
         // Recarregar deriva
         const derivaResponse = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
         derivaAtiva = await derivaResponse.json();
@@ -662,6 +726,9 @@ function mostrarDetalhesDescoberta(desc) {
                 <span>📍 ${desc.latitude.toFixed(6)}, ${desc.longitude.toFixed(6)}</span>
             ` : ''}
             <span>🕐 ${formatarDataHora(desc.timestamp)}</span>
+            <button class="favorita-btn ${desc.favorita ? 'ativa' : 'inativa'}" onclick="toggleFavorita(${desc.id}, event)" title="${desc.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'}">
+                ${desc.favorita ? '★' : '☆'}
+            </button>
         </div>
         
         ${desc.notas ? `
@@ -669,6 +736,7 @@ function mostrarDetalhesDescoberta(desc) {
         ` : '<p style="color: #6b6b80; font-style: italic;">Sem notas</p>'}
         
         <div class="detalhes-actions">
+            <button class="btn-secondary" onclick="editarDescoberta(derivaAtiva.descobertas.find(d => d.id === ${desc.id}))">✏️ Editar</button>
             <button class="btn-danger" onclick="eliminarDescoberta(${desc.id})">🗑️ Eliminar</button>
         </div>
     `;
@@ -837,6 +905,246 @@ async function eliminarDeriva(id) {
         alert('Deriva eliminada!');
     } catch (error) {
         alert('Erro ao eliminar: ' + error.message);
+    }
+}
+
+// ============ EDITAR DESCOBERTA ============
+
+function editarDescoberta(desc) {
+    descobertaEmEdicao = desc;
+    dadosEdicao = {
+        latitude: desc.latitude,
+        longitude: desc.longitude,
+        fotoPath: desc.foto_path,
+        fotoThumbPath: desc.foto_thumb_path,
+        orientacao: desc.orientacao,
+        notas: desc.notas
+    };
+    
+    // Atualizar UI
+    document.getElementById('edit-desc-notas').value = desc.notas || '';
+    
+    if (desc.latitude && desc.longitude) {
+        document.getElementById('edit-desc-coords').textContent = 
+            `${desc.latitude.toFixed(6)}, ${desc.longitude.toFixed(6)}`;
+    } else {
+        document.getElementById('edit-desc-coords').textContent = '';
+    }
+    
+    // Mostrar foto atual
+    const preview = document.getElementById('edit-foto-preview');
+    const previewImg = document.getElementById('edit-foto-preview-img');
+    
+    if (desc.foto_path) {
+        previewImg.src = desc.foto_path;
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
+    
+    document.getElementById('modal-editar-descoberta').style.display = 'flex';
+}
+
+function fecharModalEditarDescoberta() {
+    document.getElementById('modal-editar-descoberta').style.display = 'none';
+    descobertaEmEdicao = null;
+    dadosEdicao = {
+        latitude: null,
+        longitude: null,
+        fotoPath: null,
+        fotoThumbPath: null,
+        orientacao: 0,
+        notas: ''
+    };
+}
+
+async function capturarLocalizacaoEdicao() {
+    if (!navigator.geolocation) {
+        alert('Geolocalização não suportada');
+        return;
+    }
+    
+    document.getElementById('edit-desc-coords').textContent = 'A obter localização...';
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            dadosEdicao.latitude = position.coords.latitude;
+            dadosEdicao.longitude = position.coords.longitude;
+            
+            document.getElementById('edit-desc-coords').textContent = 
+                `${dadosEdicao.latitude.toFixed(6)}, ${dadosEdicao.longitude.toFixed(6)}`;
+        },
+        (error) => {
+            alert('Erro ao obter localização: ' + error.message);
+            document.getElementById('edit-desc-coords').textContent = '';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
+}
+
+async function processarFotoEdicao(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecione uma imagem');
+        return;
+    }
+    
+    let orientacao = 0;
+    try {
+        orientacao = await lerOrientacaoEXIF(file);
+    } catch (e) {
+        console.warn('Erro ao ler EXIF:', e);
+    }
+    
+    try {
+        const { blobOriginal, blobThumb } = await processarImagem(file, orientacao);
+        
+        const formData = new FormData();
+        formData.append('foto', blobOriginal, 'foto.jpg');
+        
+        const response = await fetch(API_UPLOAD, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Erro ao enviar foto');
+        
+        const result = await response.json();
+        
+        dadosEdicao.fotoPath = result.foto_path;
+        dadosEdicao.fotoThumbPath = result.foto_thumb_path;
+        dadosEdicao.orientacao = result.orientacao;
+        
+        const preview = document.getElementById('edit-foto-preview');
+        const previewImg = document.getElementById('edit-foto-preview-img');
+        previewImg.src = URL.createObjectURL(blobOriginal);
+        preview.style.display = 'block';
+        
+    } catch (error) {
+        alert('Erro ao processar foto: ' + error.message);
+    }
+}
+
+function removerFotoEdicao() {
+    dadosEdicao.fotoPath = null;
+    dadosEdicao.fotoThumbPath = null;
+    document.getElementById('edit-foto-preview').style.display = 'none';
+    document.getElementById('edit-foto-input').value = '';
+}
+
+async function salvarEdicaoDescoberta() {
+    if (!descobertaEmEdicao) return;
+    
+    const notas = document.getElementById('edit-desc-notas').value.trim();
+    
+    try {
+        const response = await fetch(API_DESCOBERTAS, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: descobertaEmEdicao.id,
+                notas: notas,
+                latitude: dadosEdicao.latitude,
+                longitude: dadosEdicao.longitude,
+                foto_path: dadosEdicao.fotoPath,
+                foto_thumb_path: dadosEdicao.fotoThumbPath,
+                orientacao: dadosEdicao.orientacao
+            })
+        });
+        
+        if (!response.ok) throw new Error('Erro ao atualizar descoberta');
+        
+        // Recarregar deriva
+        const derivaResponse = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
+        derivaAtiva = await derivaResponse.json();
+        
+        renderDescobertas();
+        renderMarcadores();
+        
+        fecharModalEditarDescoberta();
+        
+        await carregarDerivas();
+    } catch (error) {
+        alert('Erro ao atualizar: ' + error.message);
+    }
+}
+
+// ============ FAVORITOS ============
+
+async function toggleFavorita(descId, event) {
+    event.stopPropagation();
+    
+    const desc = derivaAtiva.descobertas.find(d => d.id === descId);
+    if (!desc) return;
+    
+    const novaFavorita = desc.favorita ? 0 : 1;
+    
+    try {
+        const response = await fetch(API_DESCOBERTAS, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: descId,
+                favorita: novaFavorita
+            })
+        });
+        
+        if (!response.ok) throw new Error('Erro ao atualizar favorito');
+        
+        // Atualizar localmente
+        desc.favorita = novaFavorita;
+        
+        renderDescobertas();
+        
+        await carregarDerivas();
+    } catch (error) {
+        alert('Erro ao atualizar favorito: ' + error.message);
+    }
+}
+
+// ============ EXPORTAR DERIVA ============
+
+async function exportarDeriva() {
+    if (!derivaAtiva) {
+        alert('Nenhuma deriva ativa');
+        return;
+    }
+    
+    try {
+        // Recarregar deriva completa
+        const response = await fetch(`${API_DERIVAS}?id=${derivaAtiva.id}`);
+        const derivaCompleta = await response.json();
+        
+        // Criar objeto para exportação
+        const dadosExport = {
+            versao: '2.0',
+            data_exportacao: new Date().toISOString(),
+            deriva: derivaCompleta
+        };
+        
+        // Converter para JSON
+        const jsonStr = JSON.stringify(dadosExport, null, 2);
+        
+        // Criar blob e download
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `deriva_${derivaAtiva.id}_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('Deriva exportada com sucesso!');
+    } catch (error) {
+        alert('Erro ao exportar: ' + error.message);
     }
 }
 
